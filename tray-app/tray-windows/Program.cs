@@ -24,6 +24,19 @@ class Program {
     static Settings settings = new Settings();
     static string settingsPath;
     static ToolStripMenuItem? startStopMenuItem;
+    static string logPath;
+
+    static void Log(string msg) {
+        try {
+            if (string.IsNullOrEmpty(logPath)) {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var appDir = Path.Combine(appData, "TrayLight");
+                Directory.CreateDirectory(appDir);
+                logPath = Path.Combine(appDir, "tray.log");
+            }
+            File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {msg}\r\n");
+        } catch { }
+    }
 n    [DllImport("user32.dll", CharSet = CharSet.Auto)]
     static extern bool DestroyIcon(IntPtr handle);
 n    [STAThread]
@@ -100,11 +113,13 @@ class Program {
         checkTimer = new System.Threading.Timer(_ => UpdateStatus(), null, 0, Math.Max(500, settings.PollIntervalMs));
         SetState(State.Unknown);
         startStopMenuItem.Text = "Stop Monitoring";
+        Log("Monitoring started");
     }
 n    static void StopMonitoring() {
         try { checkTimer?.Dispose(); checkTimer = null; } catch {}
         SetState(State.Unknown);
         if (startStopMenuItem!=null) startStopMenuItem.Text = "Start Monitoring";
+        Log("Monitoring stopped");
     }
 
     static void ToggleMonitoring() {
@@ -189,6 +204,7 @@ class Program {
 
     static void SetState(State s) {
         if (s == lastState) return;
+        Log($"State change: {lastState} -> {s}");
         lastState = s;
         switch(s) {
             case State.Running: tray.Icon = iconGreen; tray.Text = "Tray Light - Running"; break;
