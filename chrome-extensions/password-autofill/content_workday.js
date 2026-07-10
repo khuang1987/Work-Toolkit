@@ -858,18 +858,25 @@ function createPanel() {
     if (isRunning) stopAutomation(); else runSubmitAutomation();
   });
 
-  // 谈话按钮：展开内置聊天框，用户可输入消息并尝试发送到页面（若可用）
-  document.getElementById('wd-auto-chat-run').addEventListener('click', () => {
-    const chatBox = document.getElementById('wd-auto-chatbox');
-    if (!chatBox) return;
-    const shown = chatBox.style.display !== 'none';
-    chatBox.style.display = shown ? 'none' : 'block';
+  // 谈话按钮：直接查找并点击页面上的“提交”按钮（无输入）
+  document.getElementById('wd-auto-chat-run').addEventListener('click', async () => {
+    log('🔎 谈话按钮触发：尝试查找并点击“提交”按钮');
+    const submitBtn = findSubmitButton();
+    if (!submitBtn) {
+      log('⚠️ 未找到提交按钮');
+      return;
+    }
+    // 点击提交并等待1s，再检查是否仍存在提交按钮
+    await clickWorkdayButton(submitBtn, '提交');
+    await sleep(1000);
+    const still = !!findSubmitButton();
+    if (still) log('⚠️ 提交按钮仍存在（可能未生效）'); else log('✅ 已触发提交，页面已改变或提交按钮消失');
   });
 
+  // 保留但隐藏的聊天发送处理（已停用输入行为）
   document.getElementById('wd-auto-chat-send').addEventListener('click', () => {
-    const txtEl = document.getElementById('wd-auto-chat-input'); const txt = txtEl ? txtEl.value.trim() : '';
-    if (!txt) return;
-    log(`💬 谈话: ${txt}`);
+    log('⚠️ 谈话发送已被停用');
+  });
     // 尝试把消息放到页面的可编辑区域并触发保存/发送按钮（若存在）
     const target = document.querySelector('[contenteditable="true"], textarea, input[type="text"]');
     if (target) {
