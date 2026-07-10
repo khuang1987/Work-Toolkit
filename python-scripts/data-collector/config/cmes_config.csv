@@ -1,0 +1,4 @@
+name,url,filename_format,description,skip_date_filter
+CZM,https://app.powerbi.com/groups/me/apps/82847a01-d062-4b7d-b20a-ae7c0bca81f9/reports/b2d4200e-3dfe-4943-b5c5-407ede537a74/ReportSection?experience=power-bi,CMES_Product_Output_CZM_{month}.xlsx,CZM MES产出数据,false
+CKH,https://app.powerbi.com/groups/me/apps/a21ef31d-d5ae-44a9-954e-bd8c4a75922f/reports/a14b8331-26a6-4439-ab03-ca8b5f1919d0/ReportSection?experience=power-bi,CMES_Product_Output_CKH_{month}.xlsx,CKH MES产出数据,false
+CKH_WIP,https://app.powerbi.com/groups/me/apps/a21ef31d-d5ae-44a9-954e-bd8c4a75922f/reports/3cc14cf6-4701-4a48-a180-082c36ae82f8/ReportSection?experience=power-bi,CMES_WIP_CKH_{month}.xlsx,CKH WIP数据,true

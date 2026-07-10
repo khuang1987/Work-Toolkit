@@ -1,0 +1,10 @@
+path_name,path_value
+planner_folder,C:\Users\{username}\OneDrive - Medtronic PLC\CZ Production - 文档\General\POWER BI 数据源 V2\B1_Planner 导出数据
+transaction_folder,C:\Users\{username}\OneDrive - Medtronic PLC\CZ Production - 文档\General\POWER BI 数据源 V2\20-GoodsMovement
+laborhour_folder,C:/Users/{username}/OneDrive - Medtronic PLC/CZ Production - 文档/General/POWER BI 数据源 V2/40-SAP工时
+cmes_folder,C:/Users/{username}/OneDrive - Medtronic PLC/CZ Production - 文档/General/POWER BI 数据源 V2/30-MES导出数据
+cmes_product_folder,C:/Users/{username}/OneDrive - Medtronic PLC/CZ Production - 文档/General/POWER BI 数据源 V2/30-MES导出数据/CMES_Product_Output
+cmes_wip_folder,C:/Users/{username}/OneDrive - Medtronic PLC/CZ Production - 文档/General/POWER BI 数据源 V2/30-MES导出数据/CMES_WIP
+config_folder,{app_dir}\config
+log_folder,{app_dir}\config\logs
+assets_folder,{app_dir}\assets

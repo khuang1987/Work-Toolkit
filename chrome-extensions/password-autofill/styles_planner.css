@@ -1,0 +1,358 @@
+/* Planner Assistant v1.2.4 Styles */
+
+/* Flash Animation */
+@keyframes flashAnimation {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+
+/* Inline Date Buttons - Same line as label */
+.pa-label-button-wrapper {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 4px !important;
+  width: 100% !important;
+}
+
+.pa-inline-btn-row {
+  display: flex;
+  gap: 3px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.pa-inline-date-btn {
+  padding: 2px 6px !important;
+  font-size: 11px !important;
+  background: #ffffff !important;
+  color: #323130 !important;
+  border: 1px solid #8a8886 !important;
+  border-radius: 2px !important;
+  cursor: pointer !important;
+  min-width: 28px !important;
+}
+
+.pa-inline-date-btn:hover {
+  background: #f3f2f1 !important;
+  border-color: #004b87 !important;
+  color: #004b87 !important;
+}
+
+.pa-inline-date-btn.today {
+  background: #004b87 !important;
+  color: white !important;
+  border-color: #004b87 !important;
+}
+
+/* Floating Panel */
+.pa-floating-panel {
+  position: fixed;
+  top: 100px;
+  right: 20px;
+  z-index: 10000000 !important;
+  background: rgba(0, 0, 0, 0.9) !important;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: move;
+  user-select: none;
+  backdrop-filter: blur(10px);
+  transition: box-shadow 0.2s, border-color 0.2s;
+  min-width: 180px;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  pointer-events: auto !important;
+}
+
+.pa-floating-panel:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.pa-panel-title {
+  color: white;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-align: center;
+  padding: 4px;
+  cursor: move;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.pa-floating-panel.light-theme .pa-panel-title {
+  color: #1d1d1f;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.pa-help-section {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10px;
+  margin-bottom: 10px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.pa-help-section strong {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Header Buttons Container */
+.pa-header-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
+/* Upgrade T3 Button - Positioned in the header of the Task Dialog */
+.pa-upgrade-t3-btn {
+  background: #ff3b30 !important;
+  color: white !important;
+  border: none !important;
+  padding: 10px 16px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+  transition: background 0.2s !important;
+}
+
+.pa-upgrade-t3-btn:hover {
+  background: #ff2d20 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Next Task Button */
+.pa-next-task-btn {
+  background: #0078d4 !important;
+  color: white !important;
+  border: none !important;
+  padding: 10px 16px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+  transition: background 0.2s, transform 0.2s !important;
+  position: relative !important;
+}
+
+.pa-next-task-btn:hover {
+  background: #106ebe !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Prev Task Button */
+.pa-prev-task-btn {
+  background: #0078d4 !important;
+  color: white !important;
+  border: none !important;
+  padding: 10px 16px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+  transition: background 0.2s, transform 0.2s !important;
+  position: relative !important;
+}
+
+.pa-prev-task-btn:hover {
+  background: #106ebe !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Button shortcut hint */
+.btn-shortcut {
+  position: absolute !important;
+  top: 2px !important;
+  right: 4px !important;
+  font-size: 8px !important;
+  opacity: 0.7 !important;
+  font-weight: 400 !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  padding: 1px 3px !important;
+  border-radius: 2px !important;
+  line-height: 1 !important;
+}
+
+.btn-text {
+  display: inline-block !important;
+}
+
+/* Start Task Button - Yellow (iOS style) */
+.pa-start-task-btn {
+  background: #ff9f0a !important;
+  color: white !important;
+  border: none !important;
+  padding: 10px 16px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+  transition: background 0.2s, transform 0.2s !important;
+}
+
+.pa-start-task-btn:hover {
+  background: #ff8c00 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Fill Template Button - Kiro Purple (iOS style) */
+.pa-fill-template-btn {
+  background: #8b5cf6 !important;
+  color: white !important;
+  border: none !important;
+  padding: 10px 16px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+  transition: background 0.2s, transform 0.2s !important;
+}
+
+.pa-fill-template-btn:hover {
+  background: #7c3aed !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+.pa-fill-template-btn:disabled {
+  background: #8b5cf6 !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  cursor: not-allowed !important;
+  opacity: 0.5 !important;
+}
+
+/* Complete Task Button - Green (iOS style) */
+.pa-complete-task-btn {
+  background: #34c759 !important;
+  color: white !important;
+  border: none !important;
+  padding: 10px 16px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+  transition: background 0.2s, transform 0.2s !important;
+}
+
+.pa-complete-task-btn:hover {
+  background: #30b350 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Upgrade Button - Red (iOS style) */
+.pa-upgrade-t3-btn {
+  background: #ff3b30 !important;
+  color: white !important;
+  border: none !important;
+  padding: 10px 16px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+  transition: background 0.2s !important;
+}
+
+.pa-upgrade-t3-btn:hover {
+  background: #ff2d20 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Light Theme Styles */
+.pa-floating-panel.light-theme {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 2px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+.pa-floating-panel.light-theme:hover {
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+.pa-floating-panel.light-theme .pa-filter-btn {
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: #1d1d1f !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+.pa-floating-panel.light-theme .pa-filter-btn:hover {
+  background: rgba(0, 0, 0, 0.1) !important;
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Touch Guard: Block Dragging but allow scroll */
+.task-card,
+[role="listitem"] {
+  touch-action: pan-y pan-x !important;
+  -webkit-user-drag: none !important;
+}

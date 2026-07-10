@@ -1,0 +1,19 @@
+{
+  "source_file": "",
+  "source_dir": "C:/Users/huangk14/OneDrive - Medtronic PLC/常州运营生产班组长工作团队 - 00-各区域不良事件记录",
+  "source_keyword": "巡线记录",
+  "target_file": "C:\\Users\\huangk14\\OneDrive - Medtronic PLC\\CZ Production - 文档\\Production Area\\02-主管巡线记录\\FY27 主管巡线记录.xlsx",
+  "sheet_name": "加工中心",
+  "target_sheet_name": "主管",
+  "backup_csv_dir": "publish",
+  "table_name": "表1",
+  "preferred_registrant": "纪磊",
+  "preferred_registrant_limit": 5,
+  "min_record_limit": 10,
+  "max_record_limit": 13,
+  "default_registrant": "黄凯",
+  "default_area": "CZ 加工中心",
+  "default_process": "数控铣",
+  "keep_excel_open": true,
+  "recent_days": 7
+}

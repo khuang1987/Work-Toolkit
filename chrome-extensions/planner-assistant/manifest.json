@@ -1,0 +1,53 @@
+{
+    "manifest_version": 3,
+    "name": "Planner & PowerBI Assistant",
+    "version": "1.2.0",
+    "description": "Boost productivity in Microsoft Planner and PowerBI with keyboard shortcuts and automation.",
+    "permissions": [
+        "activeTab",
+        "storage",
+        "scripting"
+    ],
+    "host_permissions": [
+        "https://tasks.office.com/*",
+        "https://planner.cloud.microsoft/*",
+        "https://app.powerbi.com/*"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "https://tasks.office.com/*",
+                "https://planner.cloud.microsoft/*"
+            ],
+            "js": [
+                "content_planner.js"
+            ],
+            "css": [
+                "styles.css"
+            ],
+            "run_at": "document_idle",
+            "all_frames": true
+        },
+        {
+            "matches": [
+                "https://app.powerbi.com/*"
+            ],
+            "js": [
+                "content_pbi.js"
+            ]
+        }
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "48": "icons/icon48.png",
+            "128": "icons/icon128.png"
+        }
+    },
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    }
+}

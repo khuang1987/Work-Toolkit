@@ -1,0 +1,6 @@
+name,url,description
+production_labor_hour,https://app.powerbi.com/groups/37243c8c-7378-42f4-98ae-3d8cd6246f56/datasets/0db307e6-a408-454b-84bf-099904eab7eb/details?ctid=d73a39db-6eda-495d-8000-7579f56d68b7&experience=power-bi,生产工时PowerBI报表
+delivery,https://app.powerbi.com/groups/37243c8c-7378-42f4-98ae-3d8cd6246f56/datasets/029d2489-2f7d-4ba6-a7f7-3dc96ded5354/details?ctid=d73a39db-6eda-495d-8000-7579f56d68b7&experience=power-bi,PowerBI报表1
+quality,https://app.powerbi.com/groups/37243c8c-7378-42f4-98ae-3d8cd6246f56/datasets/d9def925-9860-4095-ba3d-71e5fdf461f5/details?ctid=d73a39db-6eda-495d-8000-7579f56d68b7&experience=power-bi,PowerBI报表2
+efficiency,https://app.powerbi.com/groups/37243c8c-7378-42f4-98ae-3d8cd6246f56/datasets/e6f657bc-a130-4dd4-99bf-647d4aa42831/details?ctid=d73a39db-6eda-495d-8000-7579f56d68b7&experience=power-bi,PowerBI报表3
+material_consumption,https://app.powerbi.com/groups/37243c8c-7378-42f4-98ae-3d8cd6246f56/datasets/260764de-3e29-427e-aaa3-ca741ea3e51a/details?experience=power-bi&language=zh-Hans,Material Consumption Statistics

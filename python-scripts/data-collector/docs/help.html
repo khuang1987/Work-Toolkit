@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据采集工具说明文档</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --success-color: #16a34a;
+            --warning-color: #ea580c;
+            --danger-color: #dc2626;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif; background: var(--bg-color); color: var(--text-color); line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: white; padding: 40px 20px; text-align: center; margin-bottom: 30px; border-radius: 0 0 20px 20px; }
+        header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        header p { font-size: 1.2em; opacity: 0.9; }
+        nav { background: var(--card-bg); padding: 15px; border-radius: 10px; margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: sticky; top: 10px; z-index: 100; }
+        nav ul { list-style: none; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        nav a { color: var(--primary-color); text-decoration: none; padding: 8px 16px; border-radius: 5px; transition: all 0.3s; }
+        nav a:hover { background: var(--primary-color); color: white; }
+        .card { background: var(--card-bg); border-radius: 15px; padding: 25px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .card h2 { color: var(--primary-color); border-bottom: 3px solid var(--primary-color); padding-bottom: 10px; margin-bottom: 20px; }
+        .card h3 { color: var(--secondary-color); margin: 20px 0 10px; }
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 20px 0; }
+        .feature-item { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-radius: 12px; padding: 20px; border-left: 4px solid var(--primary-color); }
+        .feature-item h4 { color: var(--primary-color); margin-bottom: 10px; }
+        .feature-item p { color: var(--text-muted); font-size: 0.95em; }
+        .flowchart { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; margin: 30px 0; padding: 20px; background: #f1f5f9; border-radius: 10px; }
+        .flow-step { background: var(--primary-color); color: white; padding: 15px 25px; border-radius: 10px; text-align: center; min-width: 100px; }
+        .flow-step.success { background: var(--success-color); }
+        .flow-arrow { font-size: 24px; color: var(--text-muted); }
+        .steps { counter-reset: step; }
+        .step { position: relative; padding: 20px 20px 20px 70px; margin: 15px 0; background: #f8fafc; border-radius: 10px; border-left: 3px solid var(--primary-color); }
+        .step::before { counter-increment: step; content: counter(step); position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 35px; height: 35px; background: var(--primary-color); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { background: var(--primary-color); color: white; }
+        tr:hover { background: #f1f5f9; }
+        code { background: #1e293b; color: #22d3ee; padding: 2px 8px; border-radius: 4px; font-family: Consolas, monospace; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 20px; border-radius: 10px; overflow-x: auto; margin: 15px 0; font-size: 13px; line-height: 1.6; }
+        .tip { padding: 15px 20px; border-radius: 10px; margin: 15px 0; }
+        .tip.info { background: #dbeafe; border-left: 4px solid var(--primary-color); }
+        .tip.warning { background: #fef3c7; border-left: 4px solid var(--warning-color); }
+        kbd { background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; font-family: monospace; }
+        .arch-box { background: linear-gradient(135deg, #1e293b, #334155); color: #e2e8f0; padding: 25px; border-radius: 15px; margin: 20px 0; }
+        .arch-layer { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 15px; margin: 10px 0; border: 1px solid rgba(255,255,255,0.2); }
+        .arch-layer h4 { color: #22d3ee; margin-bottom: 10px; }
+        .arch-modules { display: flex; flex-wrap: wrap; gap: 10px; }
+        .arch-module { background: rgba(34, 211, 238, 0.2); border: 1px solid #22d3ee; padding: 6px 12px; border-radius: 6px; font-size: 0.9em; }
+        footer { text-align: center; padding: 30px; color: var(--text-muted); border-top: 1px solid var(--border-color); margin-top: 40px; }
+        @media (max-width: 768px) { header h1 { font-size: 1.8em; } nav ul { flex-direction: column; align-items: center; } .flowchart { flex-direction: column; } .flow-arrow { transform: rotate(90deg); } }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📊 数据采集工具说明文档</h1>
+        <p>Data Collection Toolkit v1.3 - 自动化数据采集与报表导出解决方案</p>
+    </header>
+    
+    <div class="container">
+        <nav>
+            <ul>
+                <li><a href="#overview">📋 功能概述</a></li>
+                <li><a href="#architecture">🏗️ 技术架构</a></li>
+                <li><a href="#quickstart">🚀 快速开始</a></li>
+                <li><a href="#cmes">📈 CMES采集</a></li>
+                <li><a href="#planner">📅 Planner导出</a></li>
+                <li><a href="#powerbi">🔄 PowerBI刷新</a></li>
+                <li><a href="#scheduler">⏰ 定时任务</a></li>
+                <li><a href="#faq">❓ 常见问题</a></li>
+            </ul>
+        </nav>
+        
+        <!-- 功能概述 -->
+        <section id="overview" class="card">
+            <h2>📋 功能概述</h2>
+            <p>数据采集工具是一款专为企业数据管理设计的自动化工具，基于 <strong>Python + Playwright</strong> 技术栈开发，支持从多个数据源自动采集、导出和刷新数据。</p>
+            
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <h4>🌐 CMES 数据采集</h4>
+                    <p>自动从 Power BI 报表导出 CMES 生产数据，支持按月/年批量导出，智能检测缺失文件。</p>
+                </div>
+                <div class="feature-item">
+                    <h4>📅 Planner 任务导出</h4>
+                    <p>自动导出 Microsoft Planner 任务数据到 Excel，支持自动登录。</p>
+                </div>
+                <div class="feature-item">
+                    <h4>🔄 PowerBI 刷新</h4>
+                    <p>一键刷新本地 Power BI Desktop 报表数据，支持任务互斥保护。</p>
+                </div>
+                <div class="feature-item">
+                    <h4>⏰ 定时任务</h4>
+                    <p>设置定时任务，自动在指定时间执行数据采集，后台静默运行。</p>
+                </div>
+            </div>
+            
+            <h3>🔹 核心特性</h3>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li><strong>自动化采集</strong> - 无需手动操作，自动完成登录、导航、数据导出</li>
+                <li><strong>智能登录</strong> - 自动检测 Microsoft 登录页面，使用已保存账号登录</li>
+                <li><strong>断点续传</strong> - 自动检测已存在文件，只导出缺失数据</li>
+                <li><strong>系统托盘</strong> - 最小化到系统托盘，后台静默运行</li>
+            </ul>
+        </section>
+        
+        <!-- 技术架构 -->
+        <section id="architecture" class="card">
+            <h2>🏗️ 技术架构</h2>
+            
+            <h3>📐 技术栈</h3>
+            <table>
+                <tr><th>技术</th><th>用途</th><th>说明</th></tr>
+                <tr><td>Python 3.10+</td><td>主开发语言</td><td>跨平台、丰富的库支持</td></tr>
+                <tr><td>Playwright</td><td>浏览器自动化</td><td>支持 Chrome/Edge，比 Selenium 更稳定</td></tr>
+                <tr><td>Tkinter + ttkbootstrap</td><td>GUI 界面</td><td>原生 Windows 风格，轻量级</td></tr>
+                <tr><td>PyInstaller</td><td>打包为 EXE</td><td>单目录打包，便于分发</td></tr>
+                <tr><td>pystray</td><td>系统托盘</td><td>后台运行，桌面通知</td></tr>
+                <tr><td>psutil</td><td>进程管理</td><td>浏览器进程控制</td></tr>
+            </table>
+            
+            <h3>🏛️ 系统架构</h3>
+            <div class="arch-box">
+                <div class="arch-layer">
+                    <h4>📱 表现层 (GUI)</h4>
+                    <div class="arch-modules">
+                        <span class="arch-module">main.py - 主窗口</span>
+                        <span class="arch-module">gui.py - UI组件</span>
+                        <span class="arch-module">SystemTray - 托盘</span>
+                    </div>
+                </div>
+                <div class="arch-layer">
+                    <h4>⚙️ 业务层 (Core)</h4>
+                    <div class="arch-modules">
+                        <span class="arch-module">cmes_data_collector.py</span>
+                        <span class="arch-module">planner_exporter.py</span>
+                        <span class="arch-module">powerbi_refresh.py</span>
+                    </div>
+                </div>
+                <div class="arch-layer">
+                    <h4>🔧 工具层 (Utils)</h4>
+                    <div class="arch-modules">
+                        <span class="arch-module">playwright_manager.py</span>
+                        <span class="arch-module">scheduler.py</span>
+                        <span class="arch-module">task_lock_manager.py</span>
+                        <span class="arch-module">path_manager.py</span>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>📁 EXE 文件结构</h3>
+            <pre>
+DataCollector/
+├── DataCollector.exe          # 主程序入口
+├── _internal/                 # Python 运行时和依赖
+│   ├── playwright/           # Playwright 库
+│   ├── tkinter/              # GUI 库
+│   └── ...                   # 其他依赖
+├── config/                    # 配置文件
+│   ├── cmes_config.json      # CMES 报表配置
+│   └── planner_config.json   # Planner 配置
+├── docs/                      # 帮助文档
+│   └── help.html             # 本帮助页面
+├── assets/                    # 资源文件
+│   └── app_icon.ico          # 程序图标
+└── readme.md                  # 说明文档
+            </pre>
+            
+            <h3>🔄 工作流程</h3>
+            <div class="flowchart">
+                <div class="flow-step">用户点击执行</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step">获取任务锁</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step">启动浏览器</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step">自动登录</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step">导出数据</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step success">保存文件</div>
+            </div>
+            
+            <h3>💡 技术亮点</h3>
+            <ul style="margin-left: 20px;">
+                <li><strong>Playwright 持久化上下文</strong> - 使用 Chrome 用户配置目录，保持登录状态</li>
+                <li><strong>任务锁机制</strong> - 防止同一任务重复执行，支持中断后自动重置</li>
+                <li><strong>智能页面检测</strong> - 多选择器检测页面加载，自动重试机制</li>
+                <li><strong>进程管理</strong> - 只终止本程序启动的浏览器，不影响用户浏览器</li>
+            </ul>
+        </section>
+        
+        <!-- 快速开始 -->
+        <section id="quickstart" class="card">
+            <h2>🚀 快速开始</h2>
+            <div class="steps">
+                <div class="step"><strong>启动程序</strong> - 双击 <code>DataCollector.exe</code></div>
+                <div class="step"><strong>系统自检</strong> - 点击菜单 <kbd>系统自检</kbd> 检查环境</div>
+                <div class="step"><strong>选择任务</strong> - 勾选需要执行的任务</div>
+                <div class="step"><strong>执行采集</strong> - 点击 <kbd>执行选中任务</kbd></div>
+            </div>
+            <div class="tip info">
+                <strong>💡 提示：</strong>首次使用请点击 <kbd>设置</kbd> → <kbd>安装Playwright浏览器</kbd>
+            </div>
+        </section>
+        
+        <!-- CMES 采集 -->
+        <section id="cmes" class="card">
+            <h2>📈 CMES 数据采集</h2>
+            <p>从 Power BI 报表自动导出 CMES 生产数据。</p>
+            <h3>支持的报表</h3>
+            <table>
+                <tr><th>报表</th><th>说明</th><th>日期筛选</th></tr>
+                <tr><td>CZM</td><td>CZM 产出数据</td><td>✅ 需要</td></tr>
+                <tr><td>CKH</td><td>CKH 产出数据</td><td>✅ 需要</td></tr>
+                <tr><td>CKH_WIP</td><td>CKH WIP 数据</td><td>❌ 不需要</td></tr>
+            </table>
+            <h3>输出文件格式</h3>
+            <pre>CMES_Product_Output_CZM_202512.xlsx    # 月度数据
+CMES_Product_Output_CZM_2024.xlsx      # 年度数据
+CMES_WIP_CKH_20251212.xlsx             # WIP 数据</pre>
+        </section>
+        
+        <!-- Planner 导出 -->
+        <section id="planner" class="card">
+            <h2>📅 Planner 任务导出</h2>
+            <p>自动导出 Microsoft Planner 任务数据到 Excel。</p>
+            <div class="flowchart">
+                <div class="flow-step">打开 Planner</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step">自动登录</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step">导出任务</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step success">保存文件</div>
+            </div>
+        </section>
+        
+        <!-- PowerBI 刷新 -->
+        <section id="powerbi" class="card">
+            <h2>🔄 PowerBI 刷新</h2>
+            <p>一键刷新本地 Power BI Desktop 报表数据。</p>
+            <div class="tip warning">
+                <strong>⚠️ 注意：</strong>刷新前请确保 Power BI Desktop 已打开并加载报表。
+            </div>
+        </section>
+        
+        <!-- 定时任务 -->
+        <section id="scheduler" class="card">
+            <h2>⏰ 定时任务</h2>
+            <p>支持设置每日定时任务，自动执行数据采集。</p>
+            <table>
+                <tr><th>选项</th><th>说明</th></tr>
+                <tr><td>启用定时刷新</td><td>勾选后启用定时任务</td></tr>
+                <tr><td>执行时间</td><td>设置每日执行时间（HH:MM）</td></tr>
+                <tr><td>任务选择</td><td>选择要执行的任务类型</td></tr>
+            </table>
+            <div class="tip info">
+                <strong>💡 提示：</strong>定时任务需要程序保持运行，可最小化到托盘。
+            </div>
+        </section>
+        
+        <!-- 常见问题 -->
+        <section id="faq" class="card">
+            <h2>❓ 常见问题</h2>
+            <h3>Q: 提示 Playwright 未安装？</h3>
+            <p>A: 点击 <kbd>设置</kbd> → <kbd>安装Playwright浏览器</kbd></p>
+            
+            <h3>Q: 数据采集失败？</h3>
+            <p>A: 检查网络连接、Microsoft 账号登录状态、目标文件夹权限</p>
+            
+            <h3>Q: 如何中断任务？</h3>
+            <p>A: 点击 <kbd>中断任务</kbd> 按钮，5秒后系统自动重置</p>
+        </section>
+    </div>
+    
+    <footer>
+        <p>📊 数据采集工具 v1.3</p>
+        <p style="margin-top: 10px; font-size: 0.9em;">作者：黄凯 | 邮箱：<a href="mailto:kai.huang2@medtronic.com" style="color: var(--primary-color);">kai.huang2@medtronic.com</a></p>
+        <p style="margin-top: 10px; font-size: 0.9em;">© 2025 All Rights Reserved</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,83 @@
+{
+  "manifest_version": 3,
+  "name": "Medtronic Work Assistant",
+  "version": "2.0.74",
+  "description": "集成自动填充、学习助手和任务管理的综合工作助手插件",
+  "icons": {
+    "128": "icon.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Medtronic Smart Assistant",
+    "default_icon": "icon.png"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "downloads",
+    "scripting",
+    "contextMenus",
+    "webRequest",
+    "webRequestAuthProvider",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://khplm.medtronic.com.cn/*",
+    "https://medtronic.csod.com/*",
+    "http://ehr.medtronic.com.cn/*",
+    "https://tasks.office.com/*",
+    "https://planner.cloud.microsoft/*",
+    "https://app.powerbi.com/*",
+    "https://www.myworkday.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://khplm.medtronic.com.cn/*",
+        "https://medtronic.csod.com/*",
+        "http://ehr.medtronic.com.cn/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://tasks.office.com/*",
+        "https://planner.cloud.microsoft/*"
+      ],
+      "js": [
+        "content_planner.js"
+      ],
+      "css": [
+        "styles_planner.css"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://app.powerbi.com/*"
+      ],
+      "js": [
+        "content_pbi.js"
+      ]
+    },
+    {
+      "matches": [
+        "https://www.myworkday.com/*"
+      ],
+      "js": [
+        "content_workday.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

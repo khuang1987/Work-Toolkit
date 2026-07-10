@@ -1,0 +1,44 @@
+# General
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Node/Web
+node_modules/
+dist/
+build/
+
+# Python Build
+*.spec
+build/
+dist/
+
+# Project Specific
+# Data Collector
+python-scripts/data-collector/config/path_config_local.csv
+python-scripts/data-collector/logs/
+python-scripts/data-collector/token.json
+
+# Line Tour Transfer
+python-scripts/line-tour-transfer/publish/
+
+# Office Assistant
+python-scripts/office-assistant/.venv/
+python-scripts/office-assistant/src/__pycache__/
+python-scripts/office-assistant/**/*.pyc
+
+# Archive
+_archive/
