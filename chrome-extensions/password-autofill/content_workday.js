@@ -952,7 +952,11 @@ chrome.runtime.onMessage.addListener(request => {
 });
 
 function init() {
-  if (window.location.href.includes('myworkday.com')) createPanel();
+  const href = window.location.href.toLowerCase();
+  // Show panel on any Workday-related page to ensure visibility across different domains/hosts
+  if (href.includes('workday')) {
+    createPanel();
+  }
 }
 
 if (document.readyState === 'loading') {
