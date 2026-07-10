@@ -849,6 +849,12 @@ function createPanel() {
     </div>
   `;
   document.body.appendChild(panel);
+  // 确保面板显示在右下角并且可见（防止被拖出屏幕或隐藏）
+  panel.style.display = 'block';
+  panel.style.right = '20px';
+  panel.style.bottom = '20px';
+  panel.style.left = 'auto';
+  panel.style.zIndex = '2147483647';
 
   document.getElementById('wd-auto-toggle-run').addEventListener('click', () => {
     if (isRunning) stopAutomation(); else runAutomation();
