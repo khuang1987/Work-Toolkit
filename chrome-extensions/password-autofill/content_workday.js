@@ -831,9 +831,16 @@ function createPanel() {
       <button id="wd-auto-submit-run" style="flex:1;padding:8px;border:none;border-radius:10px;
         background:rgba(52,199,89,0.85);
         color:#fff;font-size:13px;font-weight:600;cursor:pointer;">提交</button>
+      <button id="wd-auto-chat-run" style="flex:1;padding:8px;border:none;border-radius:10px;
+        background:linear-gradient(90deg,#ff8a65,#ff5252);
+        color:#fff;font-size:13px;font-weight:600;cursor:pointer;">谈话</button>
       <input id="wd-auto-count" type="number" min="1" max="100" value="5" style="
         width:60px;padding:4px 8px;border:none;border-radius:8px;
         background:rgba(255,255,255,0.1);color:#fff;font-size:12px;text-align:center;">
+    </div>
+    <div id="wd-auto-chatbox" style="display:none;margin-bottom:8px;">
+      <textarea id="wd-auto-chat-input" placeholder="输入消息并按发送" style="width:100%;height:60px;border-radius:8px;padding:8px;border:none;resize:none;font-size:12px;"></textarea>
+      <div style="text-align:right;margin-top:6px;"><button id="wd-auto-chat-send" style="padding:6px 10px;border:none;border-radius:8px;background:#4b90ff;color:#fff;cursor:pointer">发送</button></div>
     </div>
     <div id="wd-auto-log" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:8px;
       height:120px;overflow-y:auto;font-size:11px;color:#ccc;line-height:1.6;"></div>
@@ -849,6 +856,53 @@ function createPanel() {
 
   document.getElementById('wd-auto-submit-run').addEventListener('click', () => {
     if (isRunning) stopAutomation(); else runSubmitAutomation();
+  });
+
+  // 谈话按钮：展开内置聊天框，用户可输入消息并尝试发送到页面（若可用）
+  document.getElementById('wd-auto-chat-run').addEventListener('click', () => {
+    const chatBox = document.getElementById('wd-auto-chatbox');
+    if (!chatBox) return;
+    const shown = chatBox.style.display !== 'none';
+    chatBox.style.display = shown ? 'none' : 'block';
+  });
+
+  document.getElementById('wd-auto-chat-send').addEventListener('click', () => {
+    const txtEl = document.getElementById('wd-auto-chat-input'); const txt = txtEl ? txtEl.value.trim() : '';
+    if (!txt) return;
+    log(`💬 谈话: ${txt}`);
+    // 尝试把消息放到页面的可编辑区域并触发保存/发送按钮（若存在）
+    const target = document.querySelector('[contenteditable="true"], textarea, input[type="text"]');
+    if (target) {
+      try {
+        if (target instanceof HTMLElement) {
+          target.focus();
+          // 对 contenteditable 区域使用 execCommand 插入文本
+          if (target.getAttribute && target.getAttribute('contenteditable') === 'true') {
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, txt);
+          } else if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+            if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) { target.value = txt; }
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          // 尝试找到发送/保存按钮并点击
+          const sendBtn = Array.from(document.querySelectorAll('button, [role="button"]')).find(b => {
+            const t = (b.getAttribute('title') || '') + '|' + (b.getAttribute('aria-label') || '') + '|' + (b.textContent || '');
+            return /发送|保存|提交|Send|Save|Submit/.test(t);
+          });
+          if (sendBtn) {
+            mouseClick(sendBtn);
+            log('✅ 已尝试发送到页面');
+          } else {
+            log('⚠️ 未找到发送/保存按钮，消息已填入输入区');
+          }
+        }
+      } catch (e) {
+        log('⚠️ 尝试发送消息时出错');
+      }
+    } else {
+      log('⚠️ 未找到页面输入区域，消息保留在日志中');
+    }
+    const emptied = document.getElementById('wd-auto-chat-input'); if (emptied) emptied.value = '';
   });
 
   let minimized = false;
