@@ -153,18 +153,23 @@ async function clickWorkdayButton(btn, label) {
 
 async function clickSubmitUntilPageChanges(submitBtn) {
   const startUrl = window.location.href;
-  for (let i = 1; i <= 5; i++) {
+  // 从悬浮框读取重复点击次数：id=wd-auto-count
+  const countInput = document.getElementById('wd-auto-count');
+  const maxRetries = Math.max(1, parseInt(countInput?.value) || 1);
+  for (let i = 1; i <= maxRetries; i++) {
     const btn = findSubmitButton() || submitBtn;
     if (!btn) return true;
-    log(`检测到提交按钮，尝试点击 (${i}/5)`);
+    log(`检测到提交按钮，尝试点击 (${i}/${maxRetries})`);
     await clickWorkdayButton(btn, '提交');
-    await sleep(2500);
+    // 等待 1s，然后判断页面或提交按钮是否仍然存在
+    await sleep(1000);
     const stillHasSubmit = !!findSubmitButton();
     if (!stillHasSubmit || window.location.href !== startUrl) {
       return true;
     }
   }
-  return false;
+  // 达到最大重试次数后仍可能存在提交按钮，返回是否还存在提交按钮为失败指标
+  return !findSubmitButton();
 }
 
 async function waitForNextOrSubmitButton(timeout = 12000) {
