@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Windchill Work Assistant</title>
+  <desc id="desc">Blue and teal airflow mark with a white W shape</desc>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="110" x2="110" y2="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#073c68"/>
+      <stop offset="1" stop-color="#0aa2b2"/>
+    </linearGradient>
+    <linearGradient id="air" x1="22" y1="92" x2="106" y2="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d9fbff"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <path d="M25 42c10-13 28-18 43-13 10 3 18 10 23 19" fill="none" stroke="#baf6fb" stroke-linecap="round" stroke-width="6" opacity=".75"/>
+  <path d="M25 78 38 49l13 34 14-34 14 34 14-34" fill="none" stroke="url(#air)" stroke-linecap="round" stroke-linejoin="round" stroke-width="8"/>
+  <path d="M32 96c14 8 34 9 49 2 9-4 16-10 22-18" fill="none" stroke="#8fe7ef" stroke-linecap="round" stroke-width="5" opacity=".9"/>
+  <circle cx="101" cy="27" r="7" fill="#fff" opacity=".92"/>
+</svg>

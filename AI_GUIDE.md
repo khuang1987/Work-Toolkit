@@ -12,7 +12,7 @@ Work-Toolkit/
 │   └── [插件名称]/      # 例如: password_autofill
 ├── python-scripts/      # Python 自动化脚本
 │   └── [脚本名称]/      # 例如: daily_report
-├── web-tools/           # 简单的网页工具 (HTML/JS)
+├── apps/                # Windows 小工具（可执行文件）
 ├── _archive/            # 归档/废弃的项目 (只读，不建议修改)
 ├── AI_GUIDE.md          # 本规则文件
 └── README.md            # 项目总索引

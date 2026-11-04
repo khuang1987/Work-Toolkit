@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Windchill Work Assistant · 安装说明</title>
+  <style>
+    :root { color-scheme: light; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: #234256; background: #f3f8fb; }
+    body { margin: 0; padding: 32px 18px; }
+    main { max-width: 760px; margin: auto; padding: 30px 34px; border: 1px solid #c9e0ea; border-radius: 18px; background: #fff; box-shadow: 0 12px 30px #075e9c18; }
+    .brand { display: inline-block; padding: 5px 10px; border-radius: 999px; background: #e1f2f8; color: #075e9c; font-size: 12px; font-weight: 700; }
+    h1 { margin: 14px 0 8px; color: #073c68; font-size: 30px; }
+    h2 { margin: 28px 0 10px; color: #075e9c; font-size: 19px; }
+    p, li { line-height: 1.7; }
+    ol { padding-left: 24px; }
+    .tip { margin-top: 20px; padding: 14px 16px; border-left: 4px solid #087f9c; border-radius: 8px; background: #eef8fc; }
+    .warning { margin-top: 14px; padding: 14px 16px; border-left: 4px solid #d28a22; border-radius: 8px; background: #fff8e9; }
+    code { padding: 2px 5px; border-radius: 4px; background: #edf3f6; color: #075e9c; }
+    footer { margin-top: 28px; color: #6d8491; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="brand">Windchill Work Assistant · v1.5.2</span>
+    <h1>安装与使用说明</h1>
+    <p>本助手用于企业 Windchill 的快速检索、文件格式筛选、待审批摘要和登录信息自动填充。</p>
+
+    <h2>安装</h2>
+    <ol>
+      <li>打开项目维护者提供的 Chrome Web Store 链接。</li>
+      <li>点击“添加到 Chrome”，确认安装。</li>
+      <li>建议点击浏览器右上角的拼图图标，将 <strong>Windchill Work Assistant</strong> 固定到工具栏。</li>
+      <li>点击扩展图标，在“Windchill 登录”中填写自己的账号和密码并保存。</li>
+    </ol>
+
+    <div class="tip">
+      <strong>账号安全：</strong>账号密码只保存在当前电脑的 Chrome 扩展本地存储中，不会发送给项目维护者或第三方服务器。每位同事都应填写自己的账号，不要共享密码。
+    </div>
+
+    <h2>基本使用</h2>
+    <ol>
+      <li>打开 Windchill 首页，右下角会出现助手输入框。</li>
+      <li>输入文件号、文件名或关键词，选择图纸、工程文件、质量文件及文件格式。</li>
+      <li>点击“检索”后，结果由 Windchill 原生搜索页面展示，助手只显示结果汇总。</li>
+      <li>进入“审批”标签后，无需输入关键词；首页会读取待审批任务，打开具体任务时页面顶部会显示蓝色的“审批重点”区域。</li>
+      <li>登录页是否自动填写由“自动填充”勾选项控制；取消勾选后请手动输入。</li>
+    </ol>
+
+    <h2>常见问题</h2>
+    <p><strong>看不到助手？</strong>确认当前页面是企业 Windchill，并刷新页面。首次安装后建议先打开一次 Windchill 首页。</p>
+    <p><strong>审批摘要不完整？</strong>回到 Windchill 首页等待任务列表加载完成，再进入审批详情页；详情页不会重复刷新审批列表。</p>
+    <p><strong>想收起悬浮框？</strong>点击右上角“−”即可收起为一个 Windchill 风格图标，再次点击图标恢复。</p>
+
+    <div class="warning">
+      <strong>使用范围：</strong>只在本人有权限的 Windchill 页面中使用。助手不提供批量下载功能，也不会绕过 Windchill 的访问权限。
+    </div>
+
+    <footer>项目名称：Windchill Work Assistant · 发布版本：1.5.2</footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Windchill Work Assistant</title>
+  <style>
+    :root { color-scheme: dark; --fg: rgb(240,240,250); --fg-50: rgba(240,240,250,.5); --line: rgba(240,240,250,.15); --line-strong: rgba(240,240,250,.35); }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { width: 330px; background: #000; color: var(--fg); font: 13px/1.5 "D-DIN", "Segoe UI", "Microsoft YaHei", sans-serif; }
+    header { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+    header img { width: 28px; height: 28px; border-radius: 6px; }
+    h1 { font-size: 12px; font-weight: 400; letter-spacing: .2em; text-transform: uppercase; }
+    header p { margin-top: 2px; color: var(--fg-50); font-size: 11px; letter-spacing: .06em; }
+    section { padding: 16px 18px; border-bottom: 1px solid var(--line); }
+    h2 { margin-bottom: 12px; font-size: 10px; font-weight: 400; letter-spacing: .18em; text-transform: uppercase; color: var(--fg-50); }
+    label { display: block; margin: 10px 0 5px; color: var(--fg-50); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+    input[type=text], input[type=password], input[type=time] { width: 100%; padding: 8px 10px; background: transparent; color: var(--fg); border: 1px solid var(--line-strong); border-radius: 0; font: inherit; outline: 0; }
+    input:focus { border-color: var(--fg); }
+    input::placeholder { color: rgba(240,240,250,.3); }
+    .password { display: flex; gap: 6px; }
+    .password input { flex: 1; }
+    button { padding: 8px 12px; background: transparent; color: var(--fg); border: 1px solid var(--line-strong); border-radius: 0; font: inherit; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; cursor: pointer; }
+    button:hover { background: var(--fg); color: #000; }
+    button.primary { width: 100%; margin-top: 14px; }
+    .row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .row input[type=time] { flex: 1; }
+    .switch-row { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+    .switch-row span { color: var(--fg-50); font-size: 11px; letter-spacing: .1em; }
+    .switch { position: relative; width: 34px; height: 18px; flex: none; }
+    .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+    .switch i { position: absolute; inset: 0; border: 1px solid var(--line-strong); }
+    .switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 10px; height: 10px; background: var(--fg-50); transition: transform .15s; }
+    .switch input:checked + i { background: var(--fg); }
+    .switch input:checked + i::after { transform: translateX(16px); background: #000; }
+    .hint { padding: 14px 18px; color: var(--fg-50); font-size: 11px; line-height: 1.6; }
+    #status { min-height: 18px; padding: 0 18px 14px; color: var(--fg); font-size: 11px; letter-spacing: .06em; }
+    #status.error { color: rgb(255,160,160); }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="icon.png" alt="Windchill">
+    <div>
+      <h1>Windchill Assistant</h1>
+      <p>登录填充 · 审批确认 · 检索</p>
+    </div>
+  </header>
+  <section>
+    <h2>登录</h2>
+    <label for="username">用户名</label>
+    <input id="username" type="text" autocomplete="username" placeholder="Windchill 用户名">
+    <label for="password">密码</label>
+    <div class="password">
+      <input id="password" type="password" autocomplete="current-password" placeholder="Windchill 密码">
+      <button id="togglePassword" type="button" aria-label="显示或隐藏密码">显示</button>
+    </div>
+    <button id="save" class="primary" type="button">保存</button>
+  </section>
+  <section>
+    <h2>每日打开</h2>
+    <div class="switch-row"><span>每天按时打开 Windchill 首页</span><span class="switch"><input id="dailyOpenEnabled" type="checkbox"><i></i></span></div>
+    <div class="row">
+      <input id="dailyOpenTime" type="time" value="09:00" aria-label="每日打开时间">
+      <button id="saveTime" type="button">保存</button>
+    </div>
+  </section>
+  <p class="hint">登录页每页只自动填写一次，填写后自动点击“完成任务 / Complete Task”。页面右下角的查询框支持图纸、工程、质量分类和文件格式多选，结果按相关度排序。</p>
+  <div id="status" role="status" aria-live="polite"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

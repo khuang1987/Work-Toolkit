@@ -73,6 +73,13 @@ function mouseClick(el) {
   });
 }
 
+function getPanelCount(defaultValue = 1) {
+  const countInput = document.getElementById('wd-auto-count');
+  const value = parseInt(countInput?.value, 10);
+  if (!Number.isFinite(value)) return defaultValue;
+  return Math.max(1, Math.min(value, 100));
+}
+
 function findButtonByTitleOrText(labels) {
   const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
   return buttons.find(btn => {
@@ -130,11 +137,22 @@ function findSubmitButton() {
   const buttons = Array.from(document.querySelectorAll(
     'button[data-uxi-actionbutton-action="bpf-submit"], button[data-automation-button-type="PRIMARY"][title="提交"], button[data-automation-button-type="PRIMARY"][title="Submit"], button[title="提交"], button[title="Submit"]'
   )).filter(btn => {
+    if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') return false;
     const action = btn.getAttribute('data-uxi-actionbutton-action') || '';
     const type = btn.getAttribute('data-automation-button-type') || '';
     return action === 'bpf-submit' || type === 'PRIMARY';
   });
   return pickBottomActionButton(buttons);
+}
+
+async function waitForSubmitButton(timeout = 10000) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const submitBtn = findSubmitButton();
+    if (submitBtn) return submitBtn;
+    await sleep(500);
+  }
+  return null;
 }
 
 async function clickWorkdayButton(btn, label) {
@@ -154,8 +172,7 @@ async function clickWorkdayButton(btn, label) {
 async function clickSubmitUntilPageChanges(submitBtn) {
   const startUrl = window.location.href;
   // 从悬浮框读取重复点击次数：id=wd-auto-count
-  const countInput = document.getElementById('wd-auto-count');
-  const maxRetries = Math.max(1, parseInt(countInput?.value) || 1);
+  const maxRetries = getPanelCount(1);
   for (let i = 1; i <= maxRetries; i++) {
     const btn = findSubmitButton() || submitBtn;
     if (!btn) return true;
@@ -682,8 +699,7 @@ async function testSelectNext() {
 function runAutomation() {
   if (isRunning) { log('已在运行中'); return; }
   automationMode = 'rating';
-  const countInput = document.getElementById('wd-auto-count');
-  const maxCount = parseInt(countInput?.value) || 999;
+  const maxCount = getPanelCount(999);
   isRunning = true;
   processedCount = 0;
   totalCount = 0;
@@ -722,8 +738,7 @@ function runAutomation() {
 
 function runSubmitAutomation() {
   if (isRunning) { log('已在运行中'); return; }
-  const countInput = document.getElementById('wd-auto-count');
-  const maxCount = parseInt(countInput?.value) || 999;
+  const maxCount = getPanelCount(999);
   automationMode = 'submit';
   isRunning = true;
   processedCount = 0;
@@ -782,79 +797,56 @@ function log(msg) {
 function updateUI() {
   const btn = document.getElementById('wd-auto-toggle-run');
   const submitBtn = document.getElementById('wd-auto-submit-run');
+  const chatBtn = document.getElementById('wd-auto-chat-run');
   const statusEl = document.getElementById('wd-auto-status');
-  if (!btn) return;
-  if (isRunning) {
-    btn.textContent = automationMode === 'rating' ? '⏹ 停止' : '评分';
-    btn.style.background = 'rgba(255,59,48,0.8)';
-    if (submitBtn) {
-      submitBtn.textContent = automationMode === 'submit' ? '⏹ 停止' : '提交';
-      submitBtn.style.background = automationMode === 'submit' ? 'rgba(255,59,48,0.8)' : 'rgba(52,199,89,0.85)';
-    }
-  } else {
-    btn.textContent = '评分';
-    btn.style.background = 'linear-gradient(135deg,#667eea,#764ba2)';
-    if (submitBtn) {
-      submitBtn.textContent = '提交';
-      submitBtn.style.background = 'rgba(52,199,89,0.85)';
-    }
-  }
-  statusEl.textContent = isRunning ? `${automationMode === 'submit' ? '提交' : '评分'}运行中 (${processedCount}/${totalCount || '?'})` : '就绪';
-  statusEl.style.color = isRunning ? '#30d158' : '#8e8e93';
+  if (!btn || !statusEl) return;
+  const modeLabel = automationMode === 'submit' ? '提交' : automationMode === 'chat-submit' ? '谈话' : '评分';
+  const running = mode => isRunning && automationMode === mode;
+  [[btn, '评分', 'rating', ''], [submitBtn, '提交', 'submit', 'green'], [chatBtn, '谈话', 'chat-submit', 'orange']].forEach(([node, label, mode, color]) => {
+    if (!node) return;
+    node.textContent = running(mode) ? '⏹ 停止' : label;
+    node.classList.toggle('danger', running(mode));
+    if (color) node.classList.toggle(color, !running(mode));
+  });
+  statusEl.textContent = isRunning ? `${modeLabel}运行中 (${processedCount}/${window._wdMaxCount || totalCount || '?'})` : '就绪';
+  statusEl.style.color = isRunning ? '#248a3d' : '#8e8e93';
+  if (globalThis.MwaDock) MwaDock.get('wd-auto-panel')?.setActive(isRunning);
 }
 
 function createPanel() {
   if (document.getElementById('wd-auto-panel')) return;
-  const panel = document.createElement('div');
-  panel.id = 'wd-auto-panel';
-  panel.style.cssText = `
-    position:fixed;bottom:20px;right:20px;z-index:999999;
-    background:rgba(30,30,30,0.95);backdrop-filter:blur(20px);
-    border-radius:16px;padding:16px;width:280px;
-    box-shadow:0 8px 32px rgba(0,0,0,0.4);
-    font-family:-apple-system,'Microsoft YaHei',sans-serif;
-    font-size:13px;color:#fff;
-    border:1px solid rgba(255,255,255,0.1);
+  if (!document.body || !globalThis.MwaDock) {
+    setTimeout(createPanel, 300);
+    return;
+  }
+  // 绩效评估与职务申请批量合并为一个右下角面板（默认折叠）；职务申请区域由 content_workday_req.js 填充。
+  const dock = MwaDock.create({ id: 'wd-auto-panel', title: 'Workday 助手', icon: 'icons/workday.png' });
+  dock.status.id = 'wd-auto-status';
+  dock.status.textContent = '就绪';
+  dock.body.innerHTML = `
+    <div class="mwa-seg" role="tablist">
+      <button type="button" class="on" data-tab="perf" role="tab">绩效评估</button>
+      <button type="button" data-tab="req" role="tab">职务申请</button>
+    </div>
+    <section data-sec="perf">
+      <p class="mwa-hint">评分：评级 3 + 固定评语 + 保存备用<br>提交：第一条 → 开始 → 下一步 → 下一步 → 提交</p>
+      <div class="mwa-actions">
+        <button id="wd-auto-toggle-run" class="mwa-btn" type="button">评分</button>
+        <button id="wd-auto-submit-run" class="mwa-btn green" type="button">提交</button>
+        <button id="wd-auto-chat-run" class="mwa-btn orange" type="button">谈话</button>
+        <input id="wd-auto-count" class="mwa-inp num" type="number" min="1" max="100" value="5" title="次数" aria-label="次数">
+      </div>
+    </section>
+    <section data-sec="req" id="wd-sec-req" hidden></section>
+    <div id="wd-auto-log" class="mwa-log" role="log"></div>
   `;
-  panel.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <span style="font-weight:600;font-size:14px;">🤖 绩效评估自动化</span>
-      <span id="wd-auto-status" style="font-size:12px;color:#8e8e93;">就绪</span>
-    </div>
-    <div style="font-size:11px;color:#8e8e93;margin-bottom:10px;line-height:1.5;">
-      评分: 评级3 + 固定评语 + 保存备用<br>提交: 第一条 -> 开始 -> 下一步 -> 下一步 -> 提交
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <button id="wd-auto-toggle-run" style="flex:1;padding:8px;border:none;border-radius:10px;
-        background:linear-gradient(135deg,#667eea,#764ba2);
-        color:#fff;font-size:13px;font-weight:600;cursor:pointer;">评分</button>
-      <button id="wd-auto-submit-run" style="flex:1;padding:8px;border:none;border-radius:10px;
-        background:rgba(52,199,89,0.85);
-        color:#fff;font-size:13px;font-weight:600;cursor:pointer;">提交</button>
-      <button id="wd-auto-chat-run" style="flex:1;padding:8px;border:none;border-radius:10px;
-        background:linear-gradient(90deg,#ff8a65,#ff5252);
-        color:#fff;font-size:13px;font-weight:600;cursor:pointer;">谈话</button>
-      <input id="wd-auto-count" type="number" min="1" max="100" value="5" style="
-        width:60px;padding:4px 8px;border:none;border-radius:8px;
-        background:rgba(255,255,255,0.1);color:#fff;font-size:12px;text-align:center;">
-    </div>
-    <div id="wd-auto-chatbox" style="display:none;margin-bottom:8px;">
-      <textarea id="wd-auto-chat-input" placeholder="输入消息并按发送" style="width:100%;height:60px;border-radius:8px;padding:8px;border:none;resize:none;font-size:12px;"></textarea>
-      <div style="text-align:right;margin-top:6px;"><button id="wd-auto-chat-send" style="padding:6px 10px;border:none;border-radius:8px;background:#4b90ff;color:#fff;cursor:pointer">发送</button></div>
-    </div>
-    <div id="wd-auto-log" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:8px;
-      height:120px;overflow-y:auto;font-size:11px;color:#ccc;line-height:1.6;"></div>
-    <div style="text-align:right;margin-top:8px;">
-      <span id="wd-auto-toggle" style="font-size:11px;color:#8e8e93;cursor:pointer;">最小化</span>
-    </div>
-  `;
-  document.body.appendChild(panel);
-  // 确保面板显示在右下角并且可见（防止被拖出屏幕或隐藏）
-  panel.style.display = 'block';
-  panel.style.right = '20px';
-  panel.style.bottom = '20px';
-  panel.style.left = 'auto';
-  panel.style.zIndex = '2147483647';
+
+  const selectTab = name => {
+    dock.body.querySelectorAll('.mwa-seg button').forEach(tab => tab.classList.toggle('on', tab.dataset.tab === name));
+    dock.body.querySelectorAll('section[data-sec]').forEach(sec => { sec.hidden = sec.dataset.sec !== name; });
+  };
+  dock.body.querySelectorAll('.mwa-seg button').forEach(tab => tab.addEventListener('click', () => selectTab(tab.dataset.tab)));
+  dock.selectTab = selectTab;
 
   document.getElementById('wd-auto-toggle-run').addEventListener('click', () => {
     if (isRunning) stopAutomation(); else runAutomation();
@@ -864,90 +856,46 @@ function createPanel() {
     if (isRunning) stopAutomation(); else runSubmitAutomation();
   });
 
-  // 谈话按钮：直接查找并点击页面上的“提交”按钮（无输入）
+  // 谈话按钮：按输入框次数连续查找并点击页面上的“提交”按钮（无输入）
   document.getElementById('wd-auto-chat-run').addEventListener('click', async () => {
-    log('🔎 谈话按钮触发：尝试查找并点击“提交”按钮');
-    const submitBtn = findSubmitButton();
-    if (!submitBtn) {
-      log('⚠️ 未找到提交按钮');
+    if (isRunning) {
+      stopAutomation();
       return;
     }
-    // 点击提交并等待1s，再检查是否仍存在提交按钮
-    await clickWorkdayButton(submitBtn, '提交');
-    await sleep(1000);
-    const still = !!findSubmitButton();
-    if (still) log('⚠️ 提交按钮仍存在（可能未生效）'); else log('✅ 已触发提交，页面已改变或提交按钮消失');
-  });
 
-  // 保留但隐藏的聊天发送处理（已停用输入行为）
-  document.getElementById('wd-auto-chat-send').addEventListener('click', () => {
-    log('⚠️ 谈话发送已被停用');
-  });
-    // 尝试把消息放到页面的可编辑区域并触发保存/发送按钮（若存在）
-    const target = document.querySelector('[contenteditable="true"], textarea, input[type="text"]');
-    if (target) {
-      try {
-        if (target instanceof HTMLElement) {
-          target.focus();
-          // 对 contenteditable 区域使用 execCommand 插入文本
-          if (target.getAttribute && target.getAttribute('contenteditable') === 'true') {
-            document.execCommand('selectAll', false, null);
-            document.execCommand('insertText', false, txt);
-          } else if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-            if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) { target.value = txt; }
-            target.dispatchEvent(new Event('input', { bubbles: true }));
-          }
-          // 尝试找到发送/保存按钮并点击
-          const sendBtn = Array.from(document.querySelectorAll('button, [role="button"]')).find(b => {
-            const t = (b.getAttribute('title') || '') + '|' + (b.getAttribute('aria-label') || '') + '|' + (b.textContent || '');
-            return /发送|保存|提交|Send|Save|Submit/.test(t);
-          });
-          if (sendBtn) {
-            mouseClick(sendBtn);
-            log('✅ 已尝试发送到页面');
-          } else {
-            log('⚠️ 未找到发送/保存按钮，消息已填入输入区');
-          }
-        }
-      } catch (e) {
-        log('⚠️ 尝试发送消息时出错');
+    automationMode = 'chat-submit';
+    isRunning = true;
+    processedCount = 0;
+    const maxCount = getPanelCount(1);
+    window._wdMaxCount = maxCount;
+    log(`🔎 谈话按钮触发：准备连续提交 ${maxCount} 次`);
+    updateUI();
+
+    for (let i = 1; i <= maxCount && isRunning; i++) {
+      const submitBtn = await waitForSubmitButton(12000);
+      if (!submitBtn) {
+        log(`⚠️ 第 ${i}/${maxCount} 次：未找到提交按钮，停止`);
+        break;
       }
-    } else {
-      log('⚠️ 未找到页面输入区域，消息保留在日志中');
+
+      log(`第 ${i}/${maxCount} 次：点击“提交”`);
+      await clickWorkdayButton(submitBtn, '提交');
+      processedCount = i;
+      updateUI();
+      await sleep(1500);
     }
-    const emptied = document.getElementById('wd-auto-chat-input'); if (emptied) emptied.value = '';
-  });
 
-  let minimized = false;
-  document.getElementById('wd-auto-toggle').addEventListener('click', () => {
-    minimized = !minimized;
-    panel.querySelectorAll(':scope > div:not(:last-child)').forEach(el => {
-      el.style.display = minimized ? 'none' : '';
-    });
-    document.getElementById('wd-auto-toggle').textContent = minimized ? '展开' : '最小化';
-    panel.style.width = minimized ? 'auto' : '280px';
+    if (isRunning) {
+      log(`✅ 连续提交结束，已触发 ${processedCount}/${maxCount} 次`);
+      stopAutomation();
+    }
   });
-
-  let isDragging = false, startX, startY, startLeft, startBottom;
-  panel.addEventListener('mousedown', e => {
-    if (e.target.tagName === 'BUTTON' || e.target.id === 'wd-auto-toggle') return;
-    isDragging = true;
-    startX = e.clientX; startY = e.clientY;
-    const r = panel.getBoundingClientRect();
-    startLeft = r.left; startBottom = window.innerHeight - r.bottom;
-  });
-  document.addEventListener('mousemove', e => {
-    if (!isDragging) return;
-    panel.style.left   = (startLeft + e.clientX - startX) + 'px';
-    panel.style.right  = 'auto';
-    panel.style.bottom = (startBottom - (e.clientY - startY)) + 'px';
-  });
-  document.addEventListener('mouseup', () => { isDragging = false; });
 }
 
 chrome.runtime.onMessage.addListener(request => {
-  if (request.action === 'startWorkdayAuto') { createPanel(); runAutomation(); }
-  if (request.action === 'startWorkdaySubmit') { createPanel(); runSubmitAutomation(); }
+  const expand = () => { createPanel(); MwaDock.get('wd-auto-panel')?.setCollapsed(false); };
+  if (request.action === 'startWorkdayAuto') { expand(); runAutomation(); }
+  if (request.action === 'startWorkdaySubmit') { expand(); runSubmitAutomation(); }
   if (request.action === 'stopAllActions')   { stopAutomation(); }
 });
 

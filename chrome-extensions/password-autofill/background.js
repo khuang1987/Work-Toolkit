@@ -1,7 +1,10 @@
 // Background script for handling new tab monitoring and closing
+importScripts('pending_sync.js');
 
 let monitoredUrls = new Set();
 let mainTabId = null;
+chrome.storage.session.get('mainTabId').then(r => { if (mainTabId === null && r.mainTabId != null) mainTabId = r.mainTabId; });
+function setMainTabId(id) { mainTabId = id; chrome.storage.session.set({ mainTabId: id }); }
 let cornerstonePopupCandidateTabIds = new Set();
 
 // 记录所有 SCORM 相关 tab
@@ -53,21 +56,164 @@ function injectVideoControl(tabId, action) {
   }).catch(() => {});
 }
 
+function fabriqAiProvider(config, provider = config.provider || 'openai') {
+  if (!['openai', 'anthropic'].includes(provider)) throw new Error('不支持的 AI 接口类型');
+  const url = new URL(config.baseUrl);
+  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+    throw new Error('AI 接口需为不含账号、查询参数或片段的 HTTPS 地址');
+  }
+  const baseUrl = url.href.replace(/\/$/, '');
+  if (url.origin === 'https://api.gpt.medtronic.com' &&
+      /^\/providers\/(?:openai|anthropic)\/v1\/?$/.test(url.pathname)) {
+    return { ...config, provider, baseUrl: `${url.origin}/providers/${provider}/v1` };
+  }
+  if (provider !== (config.provider || 'openai')) throw new Error('请先在插件设置中配置该接口类型');
+  return { ...config, provider, baseUrl };
+}
+
+async function fabriqAiRequest(config, path, body) {
+  if (!config.baseUrl || !config.key) {
+    throw new Error('请先在插件弹窗 Fabriq 卡片中配置 AI 接口、模型和 Key');
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90000);
+  try {
+    const response = await fetch(`${config.baseUrl}${path}`, {
+      method: body ? 'POST' : 'GET',
+      credentials: 'omit',
+      redirect: 'error',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.key}`,
+        ...(config.provider === 'anthropic' ? { 'anthropic-version': '2023-06-01' } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    if (!response.ok) {
+      const hint = { 401: 'Token 无效或过期', 403: 'Token 权限不足', 402: '请检查额度',
+        429: '请求过于频繁，请稍后重试' }[response.status];
+      throw new Error(`AI 接口返回 ${response.status}${hint ? `（${hint}）` : ''}`);
+    }
+    return await response.json();
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('AI 请求超时，请重试或选择其他模型');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fabriqAiModels(config) {
+  config = fabriqAiProvider(config);
+  const models = [];
+  const cursors = new Set();
+  let path = '/models';
+  while (path) {
+    const json = await fabriqAiRequest(config, path);
+    if (!Array.isArray(json.data)) throw new Error('模型列表格式无效');
+    for (const model of json.data) {
+      if (typeof model.id !== 'string' || !model.id ||
+          /^(text-embedding|whisper|tts|dall-e|gpt-image|sora)|-(audio|realtime|transcribe)/i.test(model.id)) continue;
+      models.push({ id: model.id, name: typeof model.display_name === 'string' ? model.display_name : model.id,
+        provider: config.provider });
+    }
+    path = '';
+    if (json.has_more) {
+      if (typeof json.last_id !== 'string' || !json.last_id || cursors.has(json.last_id)) {
+        throw new Error('模型列表分页游标无效');
+      }
+      cursors.add(json.last_id);
+      path = `/models?after_id=${encodeURIComponent(json.last_id)}`;
+    }
+  }
+  if (!models.length) throw new Error('该接口未返回可用的文本模型');
+  return models;
+}
+
+async function fabriqAiOptions() {
+  const { fabriqAi } = await chrome.storage.local.get('fabriqAi');
+  if (!fabriqAi?.baseUrl || !fabriqAi.key) throw new Error('请先在插件弹窗配置 AI 接口和 Key');
+  const config = fabriqAiProvider(fabriqAi);
+  const company = /^https:\/\/api\.gpt\.medtronic\.com\/providers\/(?:openai|anthropic)\/v1$/.test(config.baseUrl);
+  const providers = company ? ['openai', 'anthropic'] : [config.provider];
+  const results = await Promise.allSettled(providers.map(p => fabriqAiModels(fabriqAiProvider(config, p))));
+  const models = [];
+  const warnings = [];
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') models.push(...result.value);
+    else warnings.push(`${providers[index]}：${result.reason.message}`);
+  });
+  if (!models.length) throw new Error(warnings.join('；'));
+  return { models, warnings, model: config.model, provider: config.provider };
+}
+
+async function fabriqAiGenerate(messages, selection = {}) {
+  const { fabriqAi } = await chrome.storage.local.get('fabriqAi');
+  if (!fabriqAi?.baseUrl || !fabriqAi.key || !fabriqAi.model) {
+    throw new Error('请先在插件弹窗 Fabriq 卡片中配置 AI 接口、模型和 Key');
+  }
+  if (!Array.isArray(messages) || !messages.length ||
+      messages.some(m => !m || !['system', 'user', 'assistant'].includes(m.role) || typeof m.content !== 'string')) {
+    throw new Error('AI 消息格式无效');
+  }
+  const config = fabriqAiProvider(fabriqAi, selection.provider || fabriqAi.provider || 'openai');
+  const model = selection.model || config.model;
+  if (typeof model !== 'string' || !model.trim()) throw new Error('请选择模型');
+  const anthropic = config.provider === 'anthropic';
+  const body = anthropic ? {
+    model,
+    system: messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n'),
+    messages: messages.filter(m => m.role !== 'system'),
+    max_tokens: 4096,
+    stream: false
+  } : { model, messages, response_format: { type: 'json_object' }, stream: false };
+  const json = await fabriqAiRequest(config, anthropic ? '/messages' : '/chat/completions', body);
+  if (json.stop_reason === 'max_tokens' || json.choices?.[0]?.finish_reason === 'length') {
+    throw new Error('模型输出被截断，请缩短输入或选择其他模型');
+  }
+  const content = anthropic
+    ? json.content?.filter(block => block.type === 'text').map(block => block.text).join('\n')
+    : json.choices?.[0]?.message?.content;
+  if (typeof content !== 'string' || !content.trim()) throw new Error('AI 未返回文本内容');
+  return content;
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Background script received message:', request);
+  console.log('Background script received action:', request.action);
+
+  if (request.action === 'fabriqAiGenerate') {
+    fabriqAiGenerate(request.messages, request.selection).then(
+      data => sendResponse({ ok: true, data }),
+      err => sendResponse({ ok: false, error: String(err && err.message || err) })
+    );
+    return true;
+  }
+
+  if (request.action === 'fabriqAiOptions' || request.action === 'fabriqAiModels') {
+    if (request.action === 'fabriqAiModels' && sender.url !== chrome.runtime.getURL('popup.html')) {
+      sendResponse({ ok: false, error: '请通过插件设置刷新模型列表' });
+      return;
+    }
+    const result = request.action === 'fabriqAiOptions'
+      ? fabriqAiOptions() : fabriqAiModels(request.config);
+    result.then(data => sendResponse({ ok: true, data }),
+      error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
 
   if (request.action === 'monitorNewTab') {
     const url = request.url;
     if (sender && sender.tab && sender.tab.id) {
-      mainTabId = sender.tab.id;
+      setMainTabId(sender.tab.id);
     }
     monitoredUrls.add(url);
     sendResponse({ success: true });
   }
 
   if (request.action === 'cornerstoneAutoClickStarted') {
-    if (sender && sender.tab && sender.tab.id) {
-      mainTabId = sender.tab.id;
+    // 课程弹出页里的 content script 也会发此消息，若被当成主页签，弹出页就永远不会被关闭
+    const t = sender && sender.tab;
+    const isPopup = t && (t.openerTabId != null || cornerstonePopupCandidateTabIds.has(t.id) || !/lms-learner-home|\/home/i.test(t.url || ''));
+    if (t && t.id && !isPopup) {
+      setMainTabId(t.id);
     }
     sendResponse({ success: true });
   }
@@ -111,6 +257,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ success: true, tabs: unique.length });
   }
 
+  // Workday 职务申请批量：按序号打开新标签页，由 content_workday_req.js 认领任务并填写
+  if (request.action === 'wdReqBatchOpen') {
+    (async () => {
+      const { wdReqJobs = {} } = await chrome.storage.session.get('wdReqJobs');
+      let opened = 0;
+      for (const index of request.indexes || []) {
+        const tab = await chrome.tabs.create({ url: request.url, active: false });
+        wdReqJobs[tab.id] = { index };
+        opened++;
+      }
+      await chrome.storage.session.set({ wdReqJobs });
+      sendResponse({ success: true, opened });
+    })();
+    return true;
+  }
+
+  if (request.action === 'wdReqGetJob') {
+    (async () => {
+      const { wdReqJobs = {} } = await chrome.storage.session.get('wdReqJobs');
+      sendResponse(sender?.tab?.id != null ? wdReqJobs[sender.tab.id] || null : null);
+    })();
+    return true;
+  }
+
   return true;
 });
 
@@ -134,6 +304,11 @@ function shouldCloseCornerstonePopup(tab) {
 function closeCornerstonePopupTab(tabId, reason, delay = 2000) {
   if (!tabId || tabId === mainTabId) return;
   setTimeout(() => {
+    chrome.storage.local.get(['isAutoClickRunning'], (r) => {
+      if (!r.isAutoClickRunning) { cornerstonePopupCandidateTabIds.delete(tabId); return; }
+      closeNow();
+    });
+    function closeNow() {
     chrome.tabs.get(tabId, tab => {
       if (chrome.runtime.lastError || !tab || tab.id === mainTabId) return;
       console.log(`Closing Cornerstone popup tab (${reason}):`, tab.url || tab.pendingUrl || tab.id);
@@ -144,6 +319,7 @@ function closeCornerstonePopupTab(tabId, reason, delay = 2000) {
         }
       });
     });
+    }
   }, delay);
 }
 
@@ -155,9 +331,14 @@ chrome.tabs.onCreated.addListener((tab) => {
     scormTabIds.add(tab.id);
   }
 
-  if (mainTabId !== null && tab.id !== mainTabId && tab.openerTabId === mainTabId) {
-    cornerstonePopupCandidateTabIds.add(tab.id);
-    closeCornerstonePopupTab(tab.id, 'opened from Cornerstone main tab');
+  // 只有自动点击运行期间才关闭弹出页；用户手动打开/点击 Cornerstone 链接不能被误关
+  if (mainTabId !== null && tab.id !== mainTabId &&
+      (tab.openerTabId === mainTabId || /medtronic\.csod\.com/.test(`${tab.url || ''} ${tab.pendingUrl || ''}`))) {
+    chrome.storage.local.get(['isAutoClickRunning'], (r) => {
+      if (!r.isAutoClickRunning) return;
+      cornerstonePopupCandidateTabIds.add(tab.id);
+      closeCornerstonePopupTab(tab.id, 'opened from Cornerstone main tab');
+    });
   }
 
   for (const monitoredUrl of monitoredUrls) {
@@ -212,185 +393,75 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   cornerstonePopupCandidateTabIds.delete(tabId);
 });
 
-// 缓存的凭据
-let cachedCredentials = {
-  username: '',
-  password: ''
-};
-
-// 更新缓存的凭据
-function updateCachedCredentials() {
-  chrome.storage.local.get(['username', 'password'], (result) => {
-    if (result.username && result.password) {
-      cachedCredentials.username = result.username;
-      cachedCredentials.password = result.password;
-      console.log('Credentials cached for Basic Auth');
-    }
-  });
-}
-
-// 初始化时获取凭据
-updateCachedCredentials();
-
-// 监听存储变化自动更新缓存
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && (changes.username || changes.password)) {
-    updateCachedCredentials();
-  }
-});
-
-// 监听 Basic Auth 认证请求
-chrome.webRequest.onAuthRequired.addListener(
-  function (details) {
-    console.log('Auth required for:', details.url);
-    if (details.url.includes('khplm.medtronic.com.cn') && cachedCredentials.username && cachedCredentials.password) {
-      console.log('Providing cached credentials for Windchill');
-      return {
-        authCredentials: {
-          username: cachedCredentials.username,
-          password: cachedCredentials.password
-        }
-      };
-    }
-    return {};
-  },
-  { urls: ["https://khplm.medtronic.com.cn/*"] },
-  ["blocking"]
-);
-
 console.log('Background script loaded');
 
-// 注册右键菜单
+// 右键菜单只保留“中止所有指令”；其余配置都在左键弹窗里
 function updateContextMenu() {
-  chrome.storage.local.get(['autoClickEnabled', 'autoClosePopup'], function (result) {
-    const enabled = !!result.autoClickEnabled;
-    const popupEnabled = !!result.autoClosePopup;
-    chrome.contextMenus.removeAll(() => {
-      chrome.contextMenus.create({
-        id: 'toggleAutoClick',
-        title: enabled ? '🟢 自动点击已开启 (点击关闭)' : '⚪ 自动点击已关闭 (点击开启)',
-        contexts: ['action']
-      });
-
-      chrome.contextMenus.create({
-        id: 'toggleAutoClosePopup',
-        title: popupEnabled ? '🟢 自动关闭弹窗已开启 (点击关闭)' : '⚪ 自动关闭弹窗已关闭 (点击开启)',
-        contexts: ['action']
-      });
-
-      // 添加分隔线
-      chrome.contextMenus.create({
-        id: 'separator',
-        type: 'separator',
-        contexts: ['action']
-      });
-
-      // 添加中止所有指令选项
-      chrome.contextMenus.create({
-        id: 'stopAllActions',
-        title: '🛑 中止所有插件指令',
-        contexts: ['action']
-      });
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'stopAllActions',
+      title: '中止所有插件指令',
+      contexts: ['action']
     });
   });
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  updateContextMenu();
+function stopAllActions() {
+  chrome.storage.local.set({
+    isAutoClickRunning: false,
+    currentClickCount: 0,
+    targetClickCount: 0,
+    markCompleteCount: 0,
+    clickedLaunchHrefs: [],
+    launchAttempts: {},
+    noButtonRefreshAttempts: 0,
+    ehrLoginAttempts: 0
+  }, () => {
+    const targets = [
+      ['*://medtronic.csod.com/*', 'stopAllActions'],
+      ['*://ehr.medtronic.com.cn/*', 'stopAllActions'],
+      ['https://khplm.medtronic.com.cn/*', 'stopWindchillActions']
+    ];
+    targets.forEach(([pattern, action]) => {
+      chrome.tabs.query({ url: pattern }, (tabs) => {
+        tabs.forEach(tab => chrome.tabs.sendMessage(tab.id, { action }, () => { void chrome.runtime.lastError; }));
+      });
+    });
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon.png',
+      title: 'Medtronic Work Assistant',
+      message: '所有插件指令已中止',
+      priority: 2
+    });
+  });
+}
+
+function reloadCornerstoneTabs() {
+  chrome.tabs.query({ url: '*://medtronic.csod.com/*' }, (tabs) => tabs.forEach(tab => chrome.tabs.reload(tab.id)));
+}
+
+chrome.runtime.onInstalled.addListener(updateContextMenu);
+chrome.runtime.onStartup.addListener(updateContextMenu);
+
+chrome.contextMenus.onClicked.addListener((info) => {
+  if (info.menuItemId === 'stopAllActions') stopAllActions();
 });
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'toggleAutoClick') {
-    chrome.storage.local.get(['autoClickEnabled'], function (result) {
-      const enabled = !!result.autoClickEnabled;
-      chrome.storage.local.set({ autoClickEnabled: !enabled }, () => {
-        updateContextMenu();
-
-        // 刷新所有已打开的 Cornerstone 页面
-        chrome.tabs.query({ url: "*://medtronic.csod.com/*" }, (tabs) => {
-          tabs.forEach(tab => {
-            console.log('刷新 Cornerstone 页面:', tab.url);
-            chrome.tabs.reload(tab.id);
-          });
-        });
-      });
-    });
-  }
-
-  if (info.menuItemId === 'toggleAutoClosePopup') {
-    chrome.storage.local.get(['autoClosePopup'], function (result) {
-      const popupEnabled = !!result.autoClosePopup;
-      chrome.storage.local.set({ autoClosePopup: !popupEnabled }, () => {
-        updateContextMenu();
-
-        // 刷新所有已打开的 Cornerstone 页面
-        chrome.tabs.query({ url: "*://medtronic.csod.com/*" }, (tabs) => {
-          tabs.forEach(tab => {
-            console.log('刷新 Cornerstone 页面:', tab.url);
-            chrome.tabs.reload(tab.id);
-          });
-        });
-      });
-    });
-  }
-
-  if (info.menuItemId === 'stopAllActions') {
-    console.log('用户请求中止所有插件指令');
-    
-    // 清理所有自动点击相关状态
-    chrome.storage.local.set({
-      isAutoClickRunning: false,
-      currentClickCount: 0,
-      targetClickCount: 0,
-      clickedLaunchHrefs: [],
-      noButtonRefreshAttempts: 0,
-      windchillLoginAttempts: 0,
-      ehrLoginAttempts: 0
-    }, () => {
-      console.log('已清理所有运行状态');
-      
-      // 向所有相关页面发送停止指令
-      const targetUrls = [
-        "*://khplm.medtronic.com.cn/*",
-        "*://medtronic.csod.com/*",
-        "*://ehr.medtronic.com.cn/*"
-      ];
-      
-      targetUrls.forEach(urlPattern => {
-        chrome.tabs.query({ url: urlPattern }, (tabs) => {
-          tabs.forEach(tab => {
-            console.log('向页面发送停止指令:', tab.url);
-            chrome.tabs.sendMessage(tab.id, { action: 'stopAllActions' }, (response) => {
-              if (chrome.runtime.lastError) {
-                console.log('发送消息失败:', chrome.runtime.lastError.message);
-              } else {
-                console.log('停止指令已发送到:', tab.url);
-              }
-            });
-          });
-        });
-      });
-      
-      // 显示通知
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icon.png',
-        title: 'Medtronic Smart Assistant',
-        message: '所有插件指令已中止',
-        priority: 2
-      });
-    });
-  }
+chrome.runtime.onMessage.addListener((request) => {
+  if (request && request.action === 'stopAllFromPopup') stopAllActions();
 });
-
 // 监听设置变化，动态更新菜单和定时任务
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local') {
-    if (changes.autoClickEnabled) {
-      updateContextMenu();
+    if (changes.autoClickEnabled || changes.autoClosePopup) {
+      reloadCornerstoneTabs();
     }
     if (changes.dailyOpenEnabled || changes.dailyOpenTime) {
       updateDailyAlarm();
+    }
+    if (changes.windchillDailyOpenEnabled || changes.windchillDailyOpenTime) {
+      updateWindchillDailyAlarm();
     }
   }
 });
@@ -432,7 +503,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'dailyOpenPages') {
     console.log('Daily alarm triggered, opening pages...');
     const urls = [
-      'https://khplm.medtronic.com.cn/Windchill/app/#ptc1/homepage',
       'http://ehr.medtronic.com.cn/'
     ];
 
@@ -444,3 +514,58 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // 初始化或更新定时器
 updateDailyAlarm();
+
+// ── Windchill：Basic Auth 凭据与每日打开 ──
+function getWindchillCredentials(callback) {
+  chrome.storage.local.get(['windchillUsername', 'windchillPassword', 'Login1', 'Password1'], (result) => {
+    const own = result.windchillUsername && result.windchillPassword;
+    callback({
+      username: (own ? result.windchillUsername : result.Login1) || '',
+      password: (own ? result.windchillPassword : result.Password1) || ''
+    });
+  });
+}
+
+// 同一请求只提交一次凭据，密码错误时不让 Chrome 反复重试导致账号锁定
+const windchillAuthTried = new Set();
+
+chrome.webRequest.onAuthRequired.addListener(
+  (details, callback) => {
+    if (windchillAuthTried.has(details.requestId)) {
+      callback({});
+      return;
+    }
+    getWindchillCredentials((credentials) => {
+      if (!credentials.username || !credentials.password) {
+        callback({});
+        return;
+      }
+      windchillAuthTried.add(details.requestId);
+      if (windchillAuthTried.size > 200) windchillAuthTried.delete(windchillAuthTried.values().next().value);
+      callback({ authCredentials: credentials });
+    });
+  },
+  { urls: ['https://khplm.medtronic.com.cn/*'] },
+  ['asyncBlocking']
+);
+
+function updateWindchillDailyAlarm() {
+  chrome.storage.local.get(['windchillDailyOpenEnabled', 'windchillDailyOpenTime'], (result) => {
+    if (!result.windchillDailyOpenEnabled) {
+      chrome.alarms.clear('windchillDailyOpen');
+      return;
+    }
+    chrome.alarms.create('windchillDailyOpen', {
+      when: getNextRunTime(result.windchillDailyOpenTime || '09:00'),
+      periodInMinutes: 1440
+    });
+  });
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'windchillDailyOpen') {
+    chrome.tabs.create({ url: 'https://khplm.medtronic.com.cn/Windchill/app/#ptc1/homepage' });
+  }
+});
+
+updateWindchillDailyAlarm();

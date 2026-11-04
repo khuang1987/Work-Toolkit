@@ -1,0 +1,43 @@
+Third-party reference notices
+============================
+
+This application does not bundle source code or artwork from the projects below.
+Their interaction ideas were reviewed as product references and implemented
+independently for this pet.
+
+1. LGaben/Desktop-Pets
+----------------------
+Repository: https://github.com/LGaben/Desktop-Pets
+License: MIT License
+Copyright: 2026 LGaben
+
+Reference ideas used: optional mouse following, explicit interaction controls,
+system-tray-centered control, and keeping autonomous movement opt-in.
+
+2. valerieliang/desktop-pet
+---------------------------
+Repository: https://github.com/valerieliang/desktop-pet
+License: MIT License
+Copyright: 2026 Valerie Liang
+
+Reference ideas used: speech bubbles, recurring reminders, friendly dismissal
+and snooze choices, and small task-oriented pet feedback.
+
+The illustrations and original fan dialogue were produced for this project,
+based on the user-provided Caleb / Love and Deepspace character reference.
+This is an unofficial fan application, not an official game product.
+No artwork, audio, transcript, or source files from the two repositories above
+are bundled. This statement is not a grant of rights in the game character.
+
+Runtime dependencies
+--------------------
+Python, Tcl/Tk, Pillow, pystray, pycaw, comtypes and their runtime dependencies
+are bundled by PyInstaller. Included upstream license files are in LICENSES/.
+
+Optional weather
+----------------
+Open-Meteo: https://open-meteo.com/
+API documentation: https://open-meteo.com/en/docs
+Geocoding: https://open-meteo.com/en/docs/geocoding-api
+Requests are disabled until the user supplies a city. Weather output displays
+the provider name and matched city. Review provider terms before commercial use.

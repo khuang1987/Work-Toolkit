@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Medtronic Work Assistant",
-  "version": "2.0.74",
-  "description": "集成自动填充、学习助手和任务管理的综合工作助手插件",
+  "version": "2.8.9",
+  "description": "集成自动填充、学习助手、任务管理和EHR一键审批的综合工作助手插件",
   "icons": {
     "128": "icon.png"
   },
@@ -15,48 +15,58 @@
     "storage",
     "tabs",
     "activeTab",
-    "downloads",
     "scripting",
     "contextMenus",
-    "webRequest",
-    "webRequestAuthProvider",
     "alarms",
-    "notifications"
+    "notifications",
+    "webRequest",
+    "webRequestAuthProvider"
   ],
   "host_permissions": [
+    "https://api.gpt.medtronic.com/*",
     "https://khplm.medtronic.com.cn/*",
     "https://medtronic.csod.com/*",
     "http://ehr.medtronic.com.cn/*",
-    "https://tasks.office.com/*",
-    "https://planner.cloud.microsoft/*",
     "https://app.powerbi.com/*",
-    "https://www.myworkday.com/*"
+    "https://www.myworkday.com/*",
+    "https://medtronic.fabriq.tech/*",
+    "http://127.0.0.1/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
   ],
   "content_scripts": [
     {
-      "matches": [
-        "https://khplm.medtronic.com.cn/*",
-        "https://medtronic.csod.com/*",
-        "http://ehr.medtronic.com.cn/*"
-      ],
-      "js": [
-        "content.js"
-      ],
+      "matches": ["https://khplm.medtronic.com.cn/*"],
+      "js": ["page_bridge.js"],
+      "run_at": "document_end",
+      "all_frames": false,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://khplm.medtronic.com.cn/*"],
+      "js": ["content_windchill_login.js", "content_windchill_assistant.js"],
       "run_at": "document_end",
       "all_frames": true
     },
     {
+      "matches": ["https://medtronic.csod.com/*"],
+      "js": ["dev_bridge.js"],
+      "run_at": "document_start",
+      "all_frames": false,
+      "world": "MAIN"
+    },
+    {
       "matches": [
-        "https://tasks.office.com/*",
-        "https://planner.cloud.microsoft/*"
+        "https://medtronic.csod.com/*",
+        "http://ehr.medtronic.com.cn/*"
       ],
       "js": [
-        "content_planner.js"
+        "mwa_dock.js",
+        "content.js",
+        "content_ehr_approve.js"
       ],
-      "css": [
-        "styles_planner.css"
-      ],
-      "run_at": "document_idle",
+      "run_at": "document_end",
       "all_frames": true
     },
     {
@@ -72,9 +82,34 @@
         "https://www.myworkday.com/*"
       ],
       "js": [
-        "content_workday.js"
+        "mwa_dock.js",
+        "content_workday.js",
+        "content_workday_req.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://medtronic.fabriq.tech/*"],
+      "js": ["content_fabriq.js", "fabriq_ai_helpers.js", "content_fabriq_ai.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["windchill-icon.svg", "icons/windchill.png"],
+      "matches": ["https://khplm.medtronic.com.cn/*"]
+    },
+    {
+      "resources": ["icons/ehr.png"],
+      "matches": ["http://ehr.medtronic.com.cn/*"]
+    },
+    {
+      "resources": ["icons/cornerstone.png"],
+      "matches": ["https://medtronic.csod.com/*"]
+    },
+    {
+      "resources": ["icons/workday.png"],
+      "matches": ["https://www.myworkday.com/*"]
     }
   ],
   "background": {

@@ -1,58 +1,43 @@
 # Work-Toolkit (工作工具箱)
 
-这是一个 Monorepo (单体仓库)，用于集中管理所有的工作辅助工具、自动化脚本和浏览器插件。本项目结构遵循 `AI_GUIDE.md` 规范。
+集中管理工作辅助工具、自动化脚本和浏览器插件的单体仓库。项目入口和维护状态见 [PROJECTS.md](PROJECTS.md)，协作约定见 [AGENTS.md](AGENTS.md)，结构规范见 [AI_GUIDE.md](AI_GUIDE.md)。
+
+## ▶ 启动工作工具箱
+
+双击仓库根目录的 **`工作工具箱.lnk`**（本机快捷方式，不提交），或直接运行：
+
+```text
+python-scripts\work-toolbox\dist\WorkToolbox.exe
+```
+
+桌面和开始菜单也有同名快捷方式，右键可“固定到任务栏”。源码运行用 `python-scripts\work-toolbox\run.bat`，打包用同目录 `build.bat`。其他工具（一键开会、深浅色切换等）都可以从工具箱里一键启动。
 
 ## 📁 目录结构
 
 ```text
 Work-Toolkit/
-├── chrome-extensions/       # Chrome 浏览器插件
-│   └── password-autofill/   # 密码自动填充与验证码辅助插件
-├── python-scripts/          # Python 自动化脚本
-│   ├── data-collector/      # 数据采集与处理工具 (原 toolkit_dataCollect)
-│   └── line-tour-transfer/  # 巡线记录转移工具 (ETL 自动化)
-├── web-tools/               # Web 前端工具 (预留)
-├── _archive/                # 归档的旧项目
-└── AI_GUIDE.md              # AI 助手开发规范文档
+├── 工作工具箱.lnk              # ▶ 工具箱启动快捷方式（本机生成）
+├── python-scripts/
+│   ├── work-toolbox/          # ★ 统一工作工具箱（主入口，dist\WorkToolbox.exe）
+│   ├── caleb-desktop-pet/     # 桌面宠物（工具箱 AI 对话的源头，源码归档）
+│   ├── data-collector/        # Planner 导出、交易日志处理、PowerBI 刷新
+│   ├── line-tour-transfer/    # 巡线记录转移 ETL
+│   └── quick-meeting/         # 一键开 Teams 会议并开始转录
+├── chrome-extensions/
+│   ├── password-autofill/     # EHR、Cornerstone、Planner 等登录辅助
+│   ├── windchill-assistant/   # Windchill 自动填充与查询助手
+│   ├── windchill-assistant-share/ # Windchill 助手分发包（仅保留最新版）
+│   └── planner-assistant/     # Planner 辅助
+├── apps/
+│   ├── toggle-light-dark/     # 深浅色模式切换（ToggleTheme.exe）
+│   └── wifi-zscaler-switcher/ # Wi-Fi / Zscaler 一键切换（工具箱按钮调用）
+├── _archive/                  # 历史项目和旧文件（不提交、不作为入口）
+├── .venv/                     # 打包用 Python 环境（PyInstaller、Pillow、pywinauto、pywin32）
+├── PROJECTS.md  AGENTS.md  AI_GUIDE.md
 ```
 
-## 🚀 快速导航
+## 🛠️ 开发
 
-### [Chrome 插件: Password Autofill](chrome-extensions/password-autofill/)
-帮助自动化填充内部系统的登录凭证，并优化验证码输入体验。
-
-### [Python: Data Collector](python-scripts/data-collector/)
-核心数据采集工具，集成了 Planner 数据导出、交易日志处理和 PowerBI 自动刷新功能。
-- **运行**: `python src/main.py`
-
-### [Python: Line Tour Transfer](python-scripts/line-tour-transfer/)
-自动化提取和转移主管巡线记录的 ETL 工具。
-- **运行**: `python src/line_tour_transfer.py`
-
-## 🛠️ 开发指南
-
-本仓库禁止在子目录中创建独立的 `.git` 仓库。所有提交必须在根目录进行。
-
-### 初始化环境
-建议为每个 Python 项目创建独立的虚拟环境：
-
-```bash
-# 数据采集工具
-cd python-scripts/data-collector
-python -m venv venv
-.\venv\Scripts\activate
-pip install -r requirements.txt
-
-# 巡线记录工具
-cd ../line-tour-transfer
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### Git 规范
-提交信息请遵循以下格式：
-- `feat: ...` 新增功能
-- `fix: ...` 修复 Bug
-- `refactor: ...` 代码重构
-- `docs: ...` 文档更新
+- 禁止在子目录中创建独立的 `.git` 仓库，提交在根目录进行。
+- Python 项目建议各自使用虚拟环境；工具箱打包使用根目录 `.venv`（首次：`python -m venv .venv`，再 `.venv\Scripts\python -m pip install pyinstaller pillow pywinauto pywin32`）。
+- 提交信息格式：`feat:` / `fix:` / `refactor:` / `docs:`。

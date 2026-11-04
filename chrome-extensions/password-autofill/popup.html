@@ -1,656 +1,271 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>Medtronic Smart Assistant</title>
+  <title>Medtronic Work Assistant</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    :root {
+      --bg: #f2f2f7;
+      --card: #ffffff;
+      --label: #1c1c1e;
+      --label-2: #6c6c70;
+      --label-3: #8e8e93;
+      --sep: rgba(60, 60, 67, .14);
+      --fill: rgba(120, 120, 128, .12);
+      --blue: #007aff;
+      --green: #34c759;
+      --red: #ff3b30;
     }
-
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
-      width: 340px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #333;
+      width: 300px;
+      padding: 12px 12px 14px;
+      background: var(--bg);
+      color: var(--label);
+      color-scheme: light;
+      font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Microsoft YaHei", sans-serif;
       -webkit-font-smoothing: antialiased;
     }
+    .header { display: flex; align-items: center; gap: 10px; padding: 2px 4px 12px; }
+    .brand { width: 34px; height: 34px; border-radius: 8px; flex: none; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
+    .header h1 { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+    .version { margin-left: auto; padding: 1px 9px; border-radius: 10px; background: var(--fill); color: var(--label-3); font-size: 11px; }
 
-    .header {
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 18px;
-      text-align: center;
-      border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+    .group { overflow: hidden; margin-bottom: 12px; border-radius: 14px; background: var(--card); }
+    .app + .app { border-top: 1px solid var(--sep); }
+    .app-head { display: flex; align-items: stretch; }
+    .app-open { flex: 1; display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; transition: background .15s; }
+    .app-open:hover, .app-toggle:hover { background: rgba(120, 120, 128, .08); }
+    .app-open:active, .app-toggle:active { background: rgba(120, 120, 128, .16); }
+    .app-icon { width: 30px; height: 30px; flex: none; border-radius: 7px; background: #fff; object-fit: contain; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .14); }
+    .app-icon.blank { background: transparent; }
+    .app-name { font-size: 15px; }
+    .app-toggle { width: 46px; display: flex; align-items: center; justify-content: center; color: var(--label-3); cursor: pointer; transition: background .15s; }
+    .app-toggle::before { content: ""; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .2s; }
+    .app.open .app-toggle::before { transform: rotate(45deg); }
+    .app-body { display: none; padding: 2px 14px 14px 56px; }
+    .app.open .app-body { display: block; }
+
+    .desc { margin-bottom: 12px; color: var(--label-2); font-size: 12px; line-height: 1.5; }
+    .field { margin-bottom: 10px; }
+    .field label { display: block; margin-bottom: 4px; color: var(--label-2); font-size: 12px; }
+    input[type=text], input[type=password], input[type=number], input[type=time], select {
+      width: 100%; padding: 8px 10px; border: 0; border-radius: 9px; outline: none;
+      background: var(--fill); color: var(--label); font: inherit; color-scheme: light;
     }
-
-    .header h1 {
-      font-size: 17px;
-      color: #667eea;
-      font-weight: 600;
-      letter-spacing: -0.3px;
+    input:focus, select:focus { box-shadow: 0 0 0 2px rgba(0, 122, 255, .45); }
+    input::placeholder { color: var(--label-3); }
+    .pw { position: relative; }
+    .pw input { padding-right: 52px; }
+    .pw .reveal {
+      position: absolute; right: 0; top: 0; height: 100%; width: auto; padding: 0 12px;
+      border: 0; background: transparent; color: var(--blue); font-size: 12px; cursor: pointer;
     }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .row label { color: var(--label); font-size: 13px; }
 
-    .header .version {
-      font-size: 11px;
-      color: #8e8e93;
-      margin-top: 2px;
-      font-weight: 400;
+    button.btn {
+      width: 100%; padding: 8px 12px; border: 0; border-radius: 10px;
+      background: rgba(0, 122, 255, .1); color: var(--blue); font: inherit; font-weight: 600;
+      cursor: pointer; transition: filter .15s, transform .05s;
     }
+    button.btn:hover { filter: brightness(.96); }
+    button.btn:active { transform: scale(.98); }
+    button.btn.save { background: var(--blue); color: #fff; }
+    button.btn.save:hover { filter: brightness(1.07); }
+    button.btn + button.btn { margin-top: 8px; }
+    hr.sep { border: 0; border-top: 1px solid var(--sep); margin: 12px 0; }
 
-    .container {
-      padding: 12px;
+    .switch { position: relative; width: 44px; height: 26px; flex: none; }
+    .switch input { position: absolute; inset: 0; z-index: 1; margin: 0; opacity: 0; cursor: pointer; }
+    .switch span { position: absolute; inset: 0; border-radius: 13px; background: rgba(120, 120, 128, .32); transition: background .2s; }
+    .switch span::after {
+      content: ""; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%;
+      background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, .25); transition: transform .2s;
     }
+    .switch input:checked + span { background: var(--green); }
+    .switch input:checked + span::after { transform: translateX(18px); }
 
-    /* iOS 18 风格卡片 */
-    .system-card {
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-radius: 16px;
-      margin-bottom: 10px;
-      overflow: hidden;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      border: 0.5px solid rgba(255, 255, 255, 0.3);
-    }
-
-    .system-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    }
-
-    .system-header {
-      padding: 0;
-      display: flex;
-      align-items: stretch;
-      background: rgba(255, 255, 255, 0.5);
-      position: relative;
-      min-height: 48px;
-    }
-
-    /* 左侧点击区域 (2/3) */
-    .click-area {
-      flex: 2;
-      padding: 12px 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: all 0.2s ease;
-      position: relative;
-    }
-
-    .click-area:hover {
-      background: rgba(102, 126, 234, 0.08);
-    }
-
-    .click-area:active {
-      background: rgba(102, 126, 234, 0.15);
-      transform: scale(0.98);
-    }
-
-    /* 右侧展开区域 (减少40%宽度) */
-    .expand-area {
-      flex: 0.6;
-      padding: 12px 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s ease;
-      border-left: 0.5px solid rgba(0, 0, 0, 0.08);
-    }
-
-    .expand-area:hover {
-      background: rgba(0, 0, 0, 0.04);
-    }
-
-    .expand-area:active {
-      background: rgba(0, 0, 0, 0.08);
-    }
-
-    .system-name {
-      font-size: 15px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #1d1d1f;
-      letter-spacing: -0.2px;
-    }
-
-    .system-icon {
-      font-size: 22px;
-      line-height: 1;
-    }
-
-    .expand-icon {
-      font-size: 14px;
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      opacity: 0.6;
-      color: #8e8e93;
-    }
-
-    .system-card.expanded .expand-icon {
-      transform: rotate(180deg);
-    }
-
-    .system-settings {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .system-card.expanded .system-settings {
-      max-height: 350px; /* 从500px减少30% */
-    }
-
-    .settings-content {
-      padding: 16px;
-      background: rgba(248, 248, 248, 0.6);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-
-    .form-group {
-      margin-bottom: 14px;
-    }
-
-    .form-group:last-child {
-      margin-bottom: 0;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 13px;
-      color: #3c3c43;
-      font-weight: 500;
-      letter-spacing: -0.1px;
-    }
-
-    input[type="text"],
-    input[type="password"],
-    input[type="number"],
-    input[type="time"] {
-      width: 100%;
-      padding: 10px 12px;
-      border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      background: rgba(255, 255, 255, 0.9);
-      transition: all 0.2s;
-      outline: none;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-      color: #1d1d1f;
-      font-family: inherit;
-    }
-
-    /* 密码输入框容器 */
-    .password-wrapper {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    .password-wrapper input {
-      padding-right: 40px;
-    }
-
-    .toggle-password {
-      position: absolute;
-      right: 8px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 6px;
-      font-size: 16px;
-      opacity: 0.6;
-      transition: opacity 0.2s;
-      width: auto;
-      margin: 0;
-      box-shadow: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .toggle-password:hover {
-      opacity: 1;
-      transform: none;
-      box-shadow: none;
-    }
-
-    .toggle-password:active {
-      transform: scale(0.95);
-      box-shadow: none;
-    }
-
-    input[type="text"]:focus,
-    input[type="password"]:focus,
-    input[type="number"]:focus,
-    input[type="time"]:focus {
-      background: white;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15), 0 2px 8px rgba(0, 0, 0, 0.08);
-      transform: translateY(-1px);
-    }
-
-    input[type="number"] {
-      width: 80px;
-    }
-
-    input::placeholder {
-      color: #c7c7cc;
-    }
-
-    .inline-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .inline-group label {
-      margin-bottom: 0;
-      flex-shrink: 0;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      margin-top: 14px;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-      letter-spacing: -0.2px;
-    }
-
-    button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-    }
-
-    button:active {
-      transform: translateY(0);
-      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-    }
-
-    /* Toggle Switch - iOS 风格 */
-    .toggle-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 16px;
-      background: rgba(255, 255, 255, 0.5);
-      min-height: 48px;
-      width: 100%;
-    }
-
-    .toggle-label-text {
-      font-size: 15px;
-      color: #1d1d1f;
-      font-weight: 600;
-      letter-spacing: -0.2px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .toggle-switch {
-      position: relative;
-      width: 51px;
-      height: 31px;
-      flex-shrink: 0;
-    }
-
-    .toggle-input {
-      display: none;
-    }
-
-    .toggle-slider {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: #e5e5ea;
-      border-radius: 31px;
-      cursor: pointer;
-      transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .toggle-slider:before {
-      content: "";
-      position: absolute;
-      width: 27px;
-      height: 27px;
-      border-radius: 50%;
-      background-color: white;
-      top: 2px;
-      left: 2px;
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-    }
-
-    .toggle-input:checked+.toggle-slider {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-
-    .toggle-input:checked+.toggle-slider:before {
-      transform: translateX(20px);
-    }
-
+    .footer { padding: 12px 14px; border-radius: 14px; background: var(--card); }
+    .footer .row { margin-bottom: 10px; }
+    #stopAll { background: rgba(255, 59, 48, .1); color: var(--red); }
     .status {
-      margin: 12px;
-      padding: 12px 16px;
-      border-radius: 12px;
-      text-align: center;
-      display: none;
-      font-size: 13px;
-      animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      font-weight: 500;
-      letter-spacing: -0.1px;
+      display: none; margin-top: 12px; padding: 9px 12px; border-radius: 10px; font-size: 12px;
+      background: rgba(52, 199, 89, .14); color: #248a3d;
     }
-
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .success {
-      background: rgba(52, 199, 89, 0.15);
-      color: #30d158;
-      border: 0.5px solid rgba(52, 199, 89, 0.3);
-    }
-
-    .error {
-      background: rgba(255, 59, 48, 0.15);
-      color: #ff3b30;
-      border: 0.5px solid rgba(255, 59, 48, 0.3);
-    }
-
-    .tip {
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 12px 14px;
-      margin: 8px 12px 12px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      color: #8e8e93;
-      line-height: 1.5;
-      border: 0.5px solid rgba(255, 255, 255, 0.3);
-      letter-spacing: -0.1px;
-    }
-
-    .tip-icon {
-      display: inline-block;
-      margin-right: 4px;
-    }
-
-    .description {
-      font-size: 12px;
-      color: #8e8e93;
-      margin-bottom: 12px;
-      line-height: 1.5;
-      letter-spacing: -0.1px;
-    }
+    .status.error { background: rgba(255, 59, 48, .12); color: #d70015; }
   </style>
 </head>
-
 <body>
   <div class="header">
-    <h1>🚀 Medtronic Work Assistant</h1>
-    <div class="version">v2.0.0</div>
+    <img class="brand" src="icon.png" alt="">
+    <h1>Work Assistant</h1>
+    <span class="version">v2.8.6</span>
   </div>
 
-  <div class="container">
-    <!-- Windchill -->
-    <div class="system-card" data-url="https://khplm.medtronic.com.cn/Windchill/app/#ptc1/homepage">
-      <div class="system-header">
-        <div class="click-area">
-          <div class="system-name">
-            <span class="system-icon">🔧</span>
-            <span>Windchill</span>
-          </div>
-        </div>
-        <div class="expand-area">
-          <span class="expand-icon">▼</span>
-        </div>
-      </div>
-      <div class="system-settings">
-        <div class="settings-content">
-          <div class="form-group">
-            <label>用户名</label>
-            <input type="text" id="username" placeholder="输入 Windchill 用户名">
-          </div>
-          <div class="form-group">
-            <label>密码</label>
-            <div class="password-wrapper">
-              <input type="password" id="password" placeholder="输入 Windchill 密码">
-              <button type="button" class="toggle-password" data-target="password" title="显示/隐藏密码">👁️</button>
-            </div>
-          </div>
-          <button id="save">💾 保存设置</button>
-        </div>
-      </div>
-    </div>
-
+  <div class="group">
     <!-- Cornerstone -->
-    <div class="system-card" data-url="https://medtronic.csod.com/ui/lms-learner-home/home">
-      <div class="system-header">
-        <div class="click-area">
-          <div class="system-name">
-            <span class="system-icon">📚</span>
-            <span>Cornerstone</span>
-          </div>
-        </div>
-        <div class="expand-area">
-          <span class="expand-icon">▼</span>
-        </div>
+    <div class="app" data-url="https://medtronic.csod.com/ui/lms-learner-home/home">
+      <div class="app-head">
+        <div class="app-open"><img class="app-icon" src="icons/cornerstone.png" alt=""><span class="app-name">Cornerstone</span></div>
+        <div class="app-toggle" title="展开配置"></div>
       </div>
-      <div class="system-settings">
-        <div class="settings-content">
-          <div class="form-group inline-group">
-            <label>自动点击次数</label>
-            <input type="number" id="clickCount" value="30" min="1" max="100">
-          </div>
-          <button id="saveClickCount">💾 保存设置</button>
+      <div class="app-body">
+        <div class="desc">开启后页面右下角出现可折叠的助手图标，点击展开。</div>
+        <div class="row">
+          <label for="autoClickEnabled">自动点击面板</label>
+          <span class="switch"><input type="checkbox" id="autoClickEnabled"><span></span></span>
         </div>
-      </div>
-    </div>
-
-    <!-- PowerBI -->
-    <div class="system-card" data-url="https://app.powerbi.com/groups/me/apps/e588a3a8-b77f-45d1-8aac-00c7e63eda49/reports/d5207bb5-2e70-4671-abd0-5d1d43f44cf4/00c74fe81146ade6334f?experience=power-bi">
-      <div class="system-header">
-        <div class="click-area">
-          <div class="system-name">
-            <span class="system-icon">📊</span>
-            <span>PowerBI</span>
-          </div>
+        <div class="row">
+          <label for="autoClosePopup">自动关闭课程弹窗</label>
+          <span class="switch"><input type="checkbox" id="autoClosePopup"><span></span></span>
         </div>
-        <div class="expand-area">
-          <span class="expand-icon">▼</span>
+        <div class="field">
+          <label for="clickCount">自动点击次数</label>
+          <input type="number" id="clickCount" value="30" min="1" max="100">
         </div>
-      </div>
-      <div class="system-settings">
-        <div class="settings-content">
-          <div class="description">
-            快速访问 PowerBI 数据报表和分析仪表板
-          </div>
-        </div>
+        <button class="btn save" id="saveClickCount">保存</button>
       </div>
     </div>
 
-    <!-- Planner -->
-    <div class="system-card" data-url="https://tasks.office.com/">
-      <div class="system-header">
-        <div class="click-area">
-          <div class="system-name">
-            <span class="system-icon">📋</span>
-            <span>Planner</span>
-          </div>
-        </div>
-        <div class="expand-area">
-          <span class="expand-icon">▼</span>
-        </div>
+    <!-- Windchill：登录填充、审批自动确认与助手面板的统一配置 -->
+    <div class="app" data-url="https://khplm.medtronic.com.cn/Windchill/app/#ptc1/homepage">
+      <div class="app-head">
+        <div class="app-open"><img class="app-icon" src="icons/windchill.png" alt=""><span class="app-name">Windchill</span></div>
+        <div class="app-toggle" title="展开配置"></div>
       </div>
-      <div class="system-settings">
-        <div class="settings-content">
-          <div class="description">
-            Microsoft Planner 任务管理助手，提供键盘快捷键和自动化功能
-          </div>
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <span style="font-size: 14px; color: #8e8e93; flex-shrink: 0;">悬浮面板主题</span>
-            <button id="themeToggleBtn" style="background: rgba(255, 255, 255, 0.9); border: none; cursor: pointer; font-size: 20px; padding: 8px 16px; border-radius: 10px; transition: transform 0.3s, background 0.2s; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); margin-left: auto;" title="切换主题">
-              🌙
-            </button>
-          </div>
-          <div style="font-size: 12px; color: #8e8e93; line-height: 1.6;">
-            <strong>快捷键：</strong><br>
-            • Ctrl+←/→: 上一个/下一个任务<br>
-            • 🚀 升级问题: 一键升级任务
+      <div class="app-body">
+        <div class="desc">登录填充 · 审批自动确认 · 助手面板。账号留空则使用 EHR 账号。</div>
+        <div class="field">
+          <label for="windchillUsername">用户名</label>
+          <input type="text" id="windchillUsername" placeholder="留空 = 使用 EHR 账号">
+        </div>
+        <div class="field">
+          <label for="windchillPassword">密码</label>
+          <div class="pw">
+            <input type="password" id="windchillPassword" placeholder="输入 Windchill 密码">
+            <button type="button" class="reveal toggle-password" data-target="windchillPassword">显示</button>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Workday 绩效评估 -->
-    <div class="system-card" data-url="https://www.myworkday.com/medtronic/d/home.htmld">
-      <div class="system-header">
-        <div class="click-area">
-          <div class="system-name">
-            <span class="system-icon">📝</span>
-            <span>Workday 绩效</span>
-          </div>
+        <button class="btn save" id="saveWindchill">保存账号</button>
+        <hr class="sep">
+        <div class="row">
+          <label for="windchillDailyOpenEnabled">每日自动打开</label>
+          <span class="switch"><input type="checkbox" id="windchillDailyOpenEnabled"><span></span></span>
         </div>
-        <div class="expand-area">
-          <span class="expand-icon">▼</span>
+        <div class="field">
+          <input type="time" id="windchillDailyOpenTime" value="09:00">
         </div>
-      </div>
-      <div class="system-settings">
-        <div class="settings-content">
-          <div class="description">
-            自动完成绩效评估：选评级 3–预期影响，填写固定评语，保存备用。<br>
-            请先在 Workday 打开任务列表页，再点击启动。
-          </div>
-          <button id="startWorkdayAuto">🤖 启动绩效评估自动化</button>
-          <button id="startWorkdaySubmit" style="margin-top:8px;">✅ 启动绩效提交自动化</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- OEE -->
-    <div class="system-card" data-url="https://cha.livelink.medtronic.com/data/perspective/client/OEE">
-      <div class="system-header">
-        <div class="click-area">
-          <div class="system-name">
-            <span class="system-icon">⚙️</span>
-            <span>OEE</span>
-          </div>
-        </div>
-        <div class="expand-area">
-          <span class="expand-icon">▼</span>
-        </div>
-      </div>
-      <div class="system-settings">
-        <div class="settings-content">
-          <div class="description">
-            设备综合效率 (OEE) 监控和分析系统
-          </div>
-        </div>
+        <button class="btn save" id="saveWindchillTime">保存时间</button>
       </div>
     </div>
 
     <!-- EHR -->
-    <div class="system-card" data-url="http://ehr.medtronic.com.cn/">
-      <div class="system-header">
-        <div class="click-area">
-          <div class="system-name">
-            <span class="system-icon">👤</span>
-            <span>EHR系统</span>
-          </div>
-        </div>
-        <div class="expand-area">
-          <span class="expand-icon">▼</span>
-        </div>
+    <div class="app" data-url="http://ehr.medtronic.com.cn/">
+      <div class="app-head">
+        <div class="app-open"><img class="app-icon" src="icons/ehr.png" alt=""><span class="app-name">EHR</span></div>
+        <div class="app-toggle" title="展开配置"></div>
       </div>
-      <div class="system-settings">
-        <div class="settings-content">
-          <div class="form-group">
-            <label>用户名</label>
-            <input type="text" id="ehrUsername" placeholder="输入用户名/邮箱/手机号">
-          </div>
-          <div class="form-group">
-            <label>密码</label>
-            <div class="password-wrapper">
-              <input type="password" id="ehrPassword" placeholder="输入 EHR 密码">
-              <button type="button" class="toggle-password" data-target="ehrPassword" title="显示/隐藏密码">👁️</button>
-            </div>
-          </div>
-          <button id="saveEhr">💾 保存设置</button>
+      <div class="app-body">
+        <div class="field">
+          <label for="ehrUsername">用户名</label>
+          <input type="text" id="ehrUsername" placeholder="用户名 / 邮箱 / 手机号">
         </div>
+        <div class="field">
+          <label for="ehrPassword">密码</label>
+          <div class="pw">
+            <input type="password" id="ehrPassword" placeholder="输入 EHR 密码">
+            <button type="button" class="reveal toggle-password" data-target="ehrPassword">显示</button>
+          </div>
+        </div>
+        <button class="btn save" id="saveEhr">保存</button>
+        <hr class="sep">
+        <div class="row">
+          <label for="dailyOpenSwitch">每日自动打开</label>
+          <span class="switch"><input type="checkbox" id="dailyOpenSwitch"><span></span></span>
+        </div>
+        <div class="field">
+          <input type="time" id="dailyOpenTime" value="09:00">
+        </div>
+        <button class="btn save" id="saveTime">保存时间</button>
       </div>
     </div>
 
-    <!-- 定时启动 -->
-    <div class="system-card">
-      <div class="system-header">
-        <div class="click-area" style="flex: 2; cursor: default;">
-          <div class="system-name">
-            <span class="system-icon">⏰</span>
-            <span>定时启动</span>
-          </div>
-          <div class="toggle-switch" style="margin-left: auto;">
-            <input type="checkbox" id="dailyOpenSwitch" class="toggle-input">
-            <label for="dailyOpenSwitch" class="toggle-slider"></label>
-          </div>
-        </div>
-        <div class="expand-area">
-          <span class="expand-icon">▼</span>
-        </div>
+    <!-- Workday -->
+    <div class="app" data-url="https://www.myworkday.com/medtronic/d/home.htmld">
+      <div class="app-head">
+        <div class="app-open"><img class="app-icon" src="icons/workday.png" alt=""><span class="app-name">Workday</span></div>
+        <div class="app-toggle" title="展开配置"></div>
       </div>
-      <div class="system-settings" id="dailySettings">
-        <div class="settings-content">
-          <div class="description">
-            每天在指定时间自动打开 Windchill 和 EHR 页面
-          </div>
-          <div class="form-group">
-            <label>启动时间</label>
-            <input type="time" id="dailyOpenTime" value="09:00">
-          </div>
-          <button id="saveTime">⏰ 保存时间</button>
+      <div class="app-body">
+        <div class="desc">页面右下角的 Workday 助手（默认折叠）合并了绩效评估与职务申请批量。先打开任务列表页，再启动。评估：评级 3，填写固定评语并保存。</div>
+        <button class="btn" id="startWorkdayAuto">启动绩效评估</button>
+        <button class="btn" id="startWorkdaySubmit">启动绩效提交</button>
+      </div>
+    </div>
+
+    <!-- Fabriq -->
+    <div class="app" data-url="https://medtronic.fabriq.tech/">
+      <div class="app-head">
+        <div class="app-open"><img class="app-icon" src="icons/fabriq.png" alt=""><span class="app-name">Fabriq</span></div>
+        <div class="app-toggle" title="展开配置"></div>
+      </div>
+      <div class="app-body">
+        <div class="desc">模型只在本工具栏弹窗中选择并保存。工单详情中点「AI 优化」展开右侧栏，可单项优化标题、描述、任务、时间，或一键完整优化；生成后先对比，确认后才应用。Key 仅保存在当前浏览器配置中。</div>
+        <div class="field">
+          <label for="aiProvider">接口类型</label>
+          <select id="aiProvider">
+            <option value="openai">OpenAI 兼容</option>
+            <option value="anthropic">Anthropic / Claude</option>
+          </select>
         </div>
+        <div class="field">
+          <label for="aiBaseUrl">接口地址</label>
+          <input type="text" id="aiBaseUrl" placeholder="https://api.gpt.medtronic.com/providers/openai/v1">
+        </div>
+        <div class="field">
+          <label for="aiModel">模型（从列表选择或输入 ID）</label>
+          <input type="text" id="aiModel" list="aiModels" placeholder="刷新列表后选择模型">
+          <datalist id="aiModels"></datalist>
+        </div>
+        <div class="field">
+          <label for="aiKey">API Key</label>
+          <div class="pw">
+            <input type="password" id="aiKey" placeholder="sk-...">
+            <button type="button" class="reveal toggle-password" data-target="aiKey">显示</button>
+          </div>
+        </div>
+        <button class="btn" id="refreshAiModels">刷新模型列表</button>
+        <div class="desc" id="aiModelStatus" role="status" style="margin-top:8px"></div>
+        <button class="btn save" id="saveAi">保存 AI 设置</button>
+      </div>
+    </div>
+
+    <!-- Power BI -->
+    <div class="app" data-url="https://app.powerbi.com/groups/me/apps/e588a3a8-b77f-45d1-8aac-00c7e63eda49/reports/d5207bb5-2e70-4671-abd0-5d1d43f44cf4/00c74fe81146ade6334f?experience=power-bi">
+      <div class="app-head">
+        <div class="app-open"><img class="app-icon" src="icons/powerbi.png" alt=""><span class="app-name">Power BI</span></div>
+      </div>
+    </div>
+
+    <!-- OEE -->
+    <div class="app" data-url="https://cha.livelink.medtronic.com/data/perspective/client/OEE">
+      <div class="app-head">
+        <div class="app-open"><img class="app-icon" src="icons/oee.png" alt=""><span class="app-name">OEE</span></div>
       </div>
     </div>
   </div>
 
-  <div class="tip">
-    <span class="tip-icon">💡</span>
-    <strong>提示：</strong>点击系统名称快速打开网页，点击右侧 ▼ 展开设置
+  <div class="footer">
+    <div class="row">
+      <label for="devModeToggle">开发者模式</label>
+      <span class="switch"><input type="checkbox" id="devModeToggle"><span></span></span>
+    </div>
+    <button class="btn" id="stopAll">中止所有指令</button>
   </div>
 
   <div id="status" class="status"></div>
 
   <script src="popup.js"></script>
 </body>
-
 </html>

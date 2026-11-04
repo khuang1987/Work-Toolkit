@@ -21,173 +21,22 @@ function safeStorageSet(obj, callback) {
   try { chrome.storage.local.set(obj, callback); } catch(e) {}
 }
 
-let windchillLoginAttempts = 0;
 let ehrLoginAttempts = 0;
-const MAX_LOGIN_ATTEMPTS = 3;
-const LOGIN_RETRY_INTERVAL = 500; // 重试间隔0.5秒
-
-let windchillAutoFillInterval = null;
-let windchillCompleteClickTimer = null;
-
-function isWindchillPage() {
-  return window.location.href.includes('khplm.medtronic.com.cn');
-}
-
-function findInDocument(doc, selectorList) {
-  for (const selector of selectorList) {
-    try {
-      if (selector.startsWith('//')) {
-        const element = doc.evaluate(selector, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-        if (element) return element;
-      } else {
-        const element = doc.querySelector(selector);
-        if (element) return element;
-      }
-    } catch (error) {
-      console.log(`选择器 ${selector} 查找失败:`, error);
-    }
-  }
-  return null;
-}
-
-function findInPageAndFrames(selectorList) {
-  const mainElement = findInDocument(document, selectorList);
-  if (mainElement) return mainElement;
-
-  const iframes = document.getElementsByTagName('iframe');
-  for (const iframe of iframes) {
-    try {
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      const element = findInDocument(iframeDoc, selectorList);
-      if (element) return element;
-    } catch (error) {
-      console.log('访问 iframe 失败:', error);
-    }
-  }
-  return null;
-}
-
-function dispatchCredentialEvents(input) {
-  ['input', 'change', 'blur', 'focus'].forEach(eventType => {
-    input.dispatchEvent(new Event(eventType, { bubbles: true }));
-  });
-}
-
-function scheduleWindchillCompleteClick() {
-  if (windchillCompleteClickTimer) return;
-  windchillCompleteClickTimer = setTimeout(() => {
-    windchillCompleteClickTimer = null;
-    const completeButton = document.querySelector('button[id*="P"][name="complete"]');
-    if (completeButton && !completeButton.hasAttribute('data-clicked')) {
-      console.log('Windchill 守护器找到完成任务按钮，准备点击');
-      completeButton.setAttribute('data-clicked', 'true');
-      completeButton.click();
-    }
-  }, 3000);
-}
-
-function fillWindchillOnce() {
-  if (!isExtensionContextValid() || !isWindchillPage()) return;
-
-  const usernameSelectors = [
-    'input[name*="signatureEngine_username"]',
-    'input[type="text"][name*="signatureEngine_username"]',
-    'input[name*="___signatureEngine_username___textbox"]',
-    '//input[contains(@name, "signatureEngine_username")]',
-    '//input[contains(@name, "___signatureEngine_username___textbox")]',
-    'input[name="j_username"]',
-    '#j_username',
-    'input[name="username"]',
-    'input[id="username"]'
-  ];
-
-  const passwordSelectors = [
-    'input[name*="signatureEngine_password"]',
-    'input[type="password"][name*="signatureEngine_password"]',
-    'input[name*="___signatureEngine_password___textbox"]',
-    '//input[contains(@name, "signatureEngine_password")]',
-    '//input[contains(@name, "___signatureEngine_password___textbox")]',
-    'input[name="j_password"]',
-    '#j_password',
-    'input[name="password"]',
-    'input[id="password"]'
-  ];
-
-  const usernameInput = findInPageAndFrames(usernameSelectors);
-  const passwordInput = findInPageAndFrames(passwordSelectors);
-
-  if (!usernameInput && !passwordInput) return;
-
-  safeStorageGet(['username', 'password'], result => {
-    const username = result.username;
-    const password = result.password;
-
-    if (!username || !password) return;
-
-    let filled = false;
-    if (usernameInput && usernameInput.value !== username) {
-      usernameInput.value = username;
-      dispatchCredentialEvents(usernameInput);
-      filled = true;
-    }
-    if (passwordInput && passwordInput.value !== password) {
-      passwordInput.value = password;
-      dispatchCredentialEvents(passwordInput);
-      filled = true;
-    }
-
-    if (filled) {
-      console.log('Windchill 守护器已填充/补填账号密码');
-      scheduleWindchillCompleteClick();
-    }
-  });
-}
-
-function startWindchillAutoFillWatcher() {
-  if (!isWindchillPage() || windchillAutoFillInterval) return;
-
-  console.log('启动 Windchill 1秒自动填充守护器');
-  fillWindchillOnce();
-  windchillAutoFillInterval = setInterval(() => {
-    if (!isExtensionContextValid() || !isWindchillPage()) {
-      clearInterval(windchillAutoFillInterval);
-      windchillAutoFillInterval = null;
-      return;
-    }
-    fillWindchillOnce();
-  }, 1000);
-}
-
+// 每个页面只自动填一次；DOM 变化触发的重复调用会覆盖用户正在输入的内容。
+let ehrFillState = 'idle';
+const EHR_FILL_DELAY_MS = 1500;
 // 自动填充指定的账号密码
 function autoFillCredentials() {
+  if (ehrFillState !== 'idle') return;
+  ehrFillState = 'pending';
+  setTimeout(runEhrAutoFill, EHR_FILL_DELAY_MS);
+}
+
+function runEhrAutoFill() {
   console.log('开始执行自动填充函数');
 
   // 定义多个可能的选择器
   const selectors = {
-    windchill: {
-      username: [
-        'input[name*="signatureEngine_username"]',
-        'input[type="text"][name*="signatureEngine_username"]',
-        'input[name*="___signatureEngine_username___textbox"]',
-        '//input[contains(@name, "signatureEngine_username")]',
-        '//input[contains(@name, "___signatureEngine_username___textbox")]',
-        'input[name="j_username"]',
-        '#j_username',
-        'input[name="username"]',
-        'input[id="username"]'
-      ],
-      password: [
-        'input[name*="signatureEngine_password"]',
-        'input[type="password"][name*="signatureEngine_password"]',
-        'input[name*="___signatureEngine_password___textbox"]',
-        '//input[contains(@name, "signatureEngine_password")]',
-        '//input[contains(@name, "___signatureEngine_password___textbox")]',
-        'input[name="j_password"]',
-        '#j_password',
-        'input[name="password"]',
-        'input[id="password"]'
-      ]
-    },
     ehr: {
       username: [
         'input[name="Login1"]',
@@ -253,6 +102,7 @@ function autoFillCredentials() {
   // 定期检查元素是否存在并填充
   function tryFill(retryCount = 0, maxRetries = 20) {
     if (retryCount >= maxRetries) {
+      ehrFillState = 'done';
       console.log('达到最大重试次数，停止尝试');
       return;
     }
@@ -264,11 +114,7 @@ function autoFillCredentials() {
     const currentUrl = window.location.href;
     console.log('当前页面URL:', currentUrl);
 
-    if (currentUrl.includes('khplm.medtronic.com.cn')) {
-      console.log('识别为Windchill系统');
-      currentSelectors = selectors.windchill;
-      storageKeys = { username: 'username', password: 'password' };
-    } else if (currentUrl.includes('ehr.medtronic.com.cn')) {
+    if (currentUrl.includes('ehr.medtronic.com.cn')) {
       console.log('识别为EHR系统登录页面');
       currentSelectors = selectors.ehr;
       storageKeys = { username: 'Login1', password: 'Password1' };
@@ -314,7 +160,8 @@ function autoFillCredentials() {
     // 填充账号密码（尝试3次，每次间隔0.5秒）
     console.log('找到输入框，开始填充账号密码...');
     // 从chrome.storage获取保存的账号密码
-    chrome.storage.local.get([storageKeys.username, storageKeys.password], function (result) {
+    safeStorageGet([storageKeys.username, storageKeys.password], function (result) {
+      ehrFillState = 'done';
       const username = result[storageKeys.username];
       const password = result[storageKeys.password];
 
@@ -351,31 +198,7 @@ function autoFillCredentials() {
             if (usernameSuccess && passwordSuccess) {
               console.log('✅ 自动填充成功');
               
-              // 只对 Windchill 系统进行登录成功检测
-              // EHR 系统需要手动输入验证码，不进行自动登录检测
-              if (currentUrl.includes('khplm.medtronic.com.cn')) {
-                // 增加 Windchill 登录尝试计数
-                windchillLoginAttempts++;
-                console.log(`Windchill 登录尝试次数: ${windchillLoginAttempts}/${MAX_LOGIN_ATTEMPTS}`);
-
-                // 保存登录尝试次数到存储
-                chrome.storage.local.set({ windchillLoginAttempts: windchillLoginAttempts });
-
-                // 检查是否达到最大尝试次数
-                if (windchillLoginAttempts >= MAX_LOGIN_ATTEMPTS) {
-                  console.log('达到最大登录尝试次数，停止自动填充');
-                  // 不再显示警告提示，静默停止重试
-                  // showLoginRetryDialog(currentUrl, storageKeys);
-                  return;
-                }
-
-                // 设置登录成功检测（5秒后检查是否还在登录页面）
-                setTimeout(() => {
-                  checkLoginSuccess(currentUrl, storageKeys);
-                }, 5000);
-              }
-
-              // 尝试聚焦验证码输入框和勾选"7天内免登陆" (针对EHR系统)
+              // 尝试聚焦验证码输入框和勾选"7天内免登陆"
               if (currentUrl.includes('ehr.medtronic.com.cn')) {
                 setTimeout(() => {
                   // 自动勾选"7天内免登陆"复选框
@@ -407,24 +230,6 @@ function autoFillCredentials() {
                 }, 500);
               }
 
-              // 如果是 Windchill 系统，3秒后自动点击完成任务按钮（只点击一次）
-              if (currentUrl.includes('khplm.medtronic.com.cn')) {
-                console.log('Windchill 系统：3秒后自动点击完成任务按钮');
-                setTimeout(() => {
-                  const completeButton = document.querySelector('button[id*="P"][name="complete"]');
-                  if (completeButton && !completeButton.hasAttribute('data-clicked')) {
-                    console.log('找到完成任务按钮，准备点击');
-                    // 标记按钮已被点击，防止重复点击
-                    completeButton.setAttribute('data-clicked', 'true');
-                    completeButton.click();
-                    console.log('已点击完成任务按钮');
-                  } else if (completeButton && completeButton.hasAttribute('data-clicked')) {
-                    console.log('完成任务按钮已被点击过，跳过');
-                  } else {
-                    console.log('未找到完成任务按钮');
-                  }
-                }, 3000);
-              }
             } else {
               // 填充失败，检查是否还有重试机会
               if (fillAttemptCount < MAX_FILL_ATTEMPTS) {
@@ -453,29 +258,6 @@ function autoFillCredentials() {
 
   // 开始尝试填充
   tryFill();
-}
-
-// 检查登录是否成功（仅用于 Windchill）
-function checkLoginSuccess(currentUrl, storageKeys) {
-  // 只检测 Windchill 系统
-  const stillOnLoginPage = window.location.href.includes('khplm.medtronic.com.cn');
-  
-  if (!stillOnLoginPage) {
-    // 登录成功，重置计数器
-    console.log('Windchill 登录成功，重置尝试计数器');
-    windchillLoginAttempts = 0;
-    chrome.storage.local.set({ windchillLoginAttempts: 0 });
-  } else {
-    console.log('仍在 Windchill 登录页面，登录可能失败');
-    // 如果还在登录页面且未达到最大次数，继续尝试
-    if (windchillLoginAttempts < MAX_LOGIN_ATTEMPTS) {
-      console.log('将在3秒后重新尝试填充');
-      setTimeout(() => autoFillCredentials(), 3000);
-    } else {
-      // 已达到最大尝试次数，不再继续尝试
-      console.log('已达到最大登录尝试次数，停止自动填充，等待用户手动处理');
-    }
-  }
 }
 
 // 显示 Toast 通知
@@ -668,93 +450,40 @@ function showToast(message, type = 'info', duration = 5000, actions = null) {
   return toast;
 }
 
-// 显示登录重试提示（替换原来的对话框）
-function showLoginRetryDialog(currentUrl, storageKeys) {
-  console.log('显示登录重试提示');
-  
-  showToast(
-    `Windchill 登录失败，已尝试 ${MAX_LOGIN_ATTEMPTS} 次。请检查账号密码是否正确，或手动登录。`,
-    'warning',
-    0, // 不自动关闭
-    [
-      {
-        id: 'retry-login-btn',
-        text: '继续尝试',
-        callback: () => {
-          console.log('用户选择继续尝试登录');
-          windchillLoginAttempts = 0;
-          chrome.storage.local.set({ windchillLoginAttempts: 0 });
-          autoFillCredentials();
-        }
-      },
-      {
-        id: 'manual-login-btn',
-        text: '手动处理',
-        callback: () => {
-          console.log('用户选择手动处理登录');
-          // 不重置计数器，保持在最大值，防止再次自动尝试
-        }
-      }
-    ]
-  );
-}
-
-// 创建统一悬浮面板
+// 创建统一悬浮面板（右下角，默认折叠为图标；点击图标展开，面板内「–」收起）
 function createFloatingButton() {
-  const panel = document.createElement('div');
-  panel.id = 'autoClickButton';
-  panel.style.cssText = `
-    position: fixed; left: 20px; top: 50%; transform: translateY(-50%);
-    z-index: 10001; background: rgba(15,20,35,0.93); backdrop-filter: blur(14px);
-    border: 1px solid rgba(255,255,255,0.13); border-radius: 16px;
-    padding: 12px 10px; display: flex; flex-direction: column; align-items: center;
-    gap: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.45); user-select: none;
-    min-width: 72px; font-family: -apple-system,'Microsoft YaHei',sans-serif; cursor: grab;
-  `;
-
-  // 标题把手
-  const dragHandle = document.createElement('div');
-  dragHandle.textContent = '⚙ 助手';
-  dragHandle.style.cssText = `color:rgba(255,255,255,0.45);font-size:11px;letter-spacing:0.5px;cursor:grab;white-space:nowrap;`;
-  panel.appendChild(dragHandle);
+  const dock = MwaDock.create({ id: 'autoClickButton', title: 'Cornerstone 助手', icon: 'icons/cornerstone.png' });
+  const panel = dock.root;
+  panel._dock = dock;
+  const row = (label, control) => {
+    const node = document.createElement('div');
+    node.className = 'mwa-row';
+    const text = document.createElement('span');
+    text.textContent = label;
+    node.append(text, control);
+    return node;
+  };
+  const list = document.createElement('div');
+  list.className = 'mwa-list';
+  dock.body.appendChild(list);
 
   // ── 自动点击（Mark Complete）──
   const clickBtn = document.createElement('button');
   clickBtn.id = '_autoClickInnerBtn';
+  clickBtn.type = 'button';
+  clickBtn.className = 'mwa-btn';
   clickBtn.innerHTML = `点击<br><span id="_clickCountLabel">--</span>次`;
-  clickBtn.style.cssText = `
-    width:56px;padding:7px 0;background:rgba(0,112,192,0.85);color:white;
-    border:1px solid rgba(255,255,255,0.2);border-radius:10px;cursor:pointer;
-    font-size:13px;font-weight:600;line-height:1.3;font-family:inherit;transition:background 0.15s;
-  `;
-  clickBtn.onmouseover = () => { if (!clickBtn.disabled) clickBtn.style.background = 'rgba(0,89,153,0.9)'; };
-  clickBtn.onmouseout  = () => { if (!clickBtn.disabled) clickBtn.style.background = isAutoClickRunning ? 'rgba(76,175,80,0.85)' : 'rgba(0,112,192,0.85)'; };
-  panel.appendChild(clickBtn);
-
-  // 分隔线
-  const sep1 = document.createElement('div');
-  sep1.style.cssText = `width:100%;height:1px;background:rgba(255,255,255,0.1);`;
-  panel.appendChild(sep1);
+  clickBtn.querySelector('br').hidden = true;
+  list.appendChild(row('自动点击', clickBtn));
 
   // ── 自动过课（翻页 + 跳过视频 + 扫描按钮）──
-  const autoLabel = document.createElement('div');
-  autoLabel.textContent = '自动过课';
-  autoLabel.style.cssText = `color:rgba(255,255,255,0.45);font-size:11px;white-space:nowrap;`;
-  panel.appendChild(autoLabel);
-
-  // 自动过课按钮
   const autoBtn = document.createElement('button');
   autoBtn.id = '_autoNextBtn';
+  autoBtn.type = 'button';
+  autoBtn.className = 'mwa-btn indigo';
   autoBtn.textContent = '▶ 开始';
-  autoBtn.style.cssText = `
-    width:56px;padding:7px 0;background:rgba(120,60,200,0.8);color:white;
-    border:1px solid rgba(255,255,255,0.2);border-radius:10px;cursor:pointer;
-    font-size:12px;font-weight:600;line-height:1.3;font-family:inherit;transition:background 0.15s;
-  `;
-  autoBtn.onmouseover = () => { if (!autoBtn.disabled) autoBtn.style.background = isAutoNextRunning ? 'rgba(180,40,40,0.9)' : 'rgba(90,40,170,0.9)'; };
-  autoBtn.onmouseout  = () => { if (!autoBtn.disabled) autoBtn.style.background = isAutoNextRunning ? 'rgba(220,80,80,0.85)' : 'rgba(120,60,200,0.8)'; };
   autoBtn.addEventListener('click', e => { e.stopPropagation(); toggleAutoNext(autoBtn); });
-  panel.appendChild(autoBtn);
+  list.appendChild(row('自动过课', autoBtn));
 
   // 自动跳过开关
   let autoSkipRunning = false;
@@ -762,16 +491,14 @@ function createFloatingButton() {
 
   const skipBtn = document.createElement('button');
   skipBtn.id = '_autoSkipBtn';
+  skipBtn.type = 'button';
+  skipBtn.className = 'mwa-btn orange';
   skipBtn.textContent = '⏭ 跳过';
-  skipBtn.style.cssText = `
-    width:56px;padding:5px 0;background:rgba(255,140,0,0.8);color:white;
-    border:1px solid rgba(255,255,255,0.18);border-radius:8px;cursor:pointer;
-    font-size:12px;font-weight:600;transition:background 0.15s;font-family:inherit;
-  `;
 
   function updateSkipBtn() {
     skipBtn.textContent = autoSkipRunning ? '⏭ 自动' : '⏭ 跳过';
-    skipBtn.style.background = autoSkipRunning ? 'rgba(220,80,80,0.85)' : 'rgba(255,140,0,0.8)';
+    skipBtn.classList.toggle('danger', autoSkipRunning);
+    skipBtn.classList.toggle('orange', !autoSkipRunning);
   }
 
   function runAutoSkip() {
@@ -780,8 +507,6 @@ function createFloatingButton() {
     autoSkipTimer = setTimeout(runAutoSkip, 2000);
   }
 
-  skipBtn.onmouseover = () => { skipBtn.style.background = autoSkipRunning ? 'rgba(180,40,40,0.9)' : 'rgba(255,100,0,0.9)'; };
-  skipBtn.onmouseout  = () => { updateSkipBtn(); };
   skipBtn.addEventListener('click', e => {
     e.stopPropagation();
     autoSkipRunning = !autoSkipRunning;
@@ -792,34 +517,8 @@ function createFloatingButton() {
       if (autoSkipTimer) { clearTimeout(autoSkipTimer); autoSkipTimer = null; }
     }
   });
-  panel.appendChild(skipBtn);
+  list.appendChild(row('跳过视频', skipBtn));
 
-  // ── 拖动逻辑 ──
-  let dragging = false, ox = 0, oy = 0, hasDragged = false;
-  panel.addEventListener('mousedown', e => {
-    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
-    dragging = true; hasDragged = false;
-    const rect = panel.getBoundingClientRect();
-    panel.style.transform = 'none';
-    panel.style.top  = rect.top  + 'px';
-    panel.style.left = rect.left + 'px';
-    ox = e.clientX - rect.left;
-    oy = e.clientY - rect.top;
-    panel.style.cursor = 'grabbing';
-    e.preventDefault();
-  });
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    hasDragged = true;
-    panel.style.left = Math.max(0, Math.min(e.clientX - ox, window.innerWidth  - panel.offsetWidth))  + 'px';
-    panel.style.top  = Math.max(0, Math.min(e.clientY - oy, window.innerHeight - panel.offsetHeight)) + 'px';
-  });
-  document.addEventListener('mouseup', () => {
-    if (dragging) { dragging = false; panel.style.cursor = 'grab'; }
-  });
-  panel.addEventListener('click', e => { if (hasDragged) { e.stopImmediatePropagation(); hasDragged = false; } }, true);
-
-  document.body.appendChild(panel);
   panel._clickBtn = clickBtn;
   return panel;
 }
@@ -833,7 +532,7 @@ function updateButtonText(count) {
   const btn   = document.getElementById('_autoClickInnerBtn');
   if (!label || !btn) return;
   label.textContent = count;
-  btn.firstChild.textContent = isAutoClickRunning ? '完成\n' : '点击\n';
+  btn.firstChild.textContent = isAutoClickRunning ? '停止' : '点击';
 }
 
 // 初始化按钮文本
@@ -849,9 +548,15 @@ function initializeButtonText() {
 function updateButtonState(isRunning) {
   const btn = document.getElementById('_autoClickInnerBtn');
   if (btn) {
-    btn.style.background = isRunning ? 'rgba(76,175,80,0.85)' : 'rgba(0,112,192,0.85)';
-    btn.style.cursor = isRunning ? 'not-allowed' : 'pointer';
+    btn.classList.toggle('green', !!isRunning);
+    btn.style.cursor = 'pointer';
   }
+  refreshCornerstoneDock();
+}
+
+// 折叠为图标时，用绿点提示自动点击 / 自动过课正在运行
+function refreshCornerstoneDock() {
+  globalThis.MwaDock?.get('autoClickButton')?.setActive(isAutoClickRunning || isAutoNextRunning);
 }
 
 // 自动点击功能（用于 Cornerstone 页面）
@@ -866,7 +571,13 @@ let refreshAttemptCount = 0; // 刷新页面尝试计数（找不到按钮时触
 let noButtonRefreshAttempts = 0; // 与存储同步，用于跨刷新累计
 
 // 页面加载时检查是否需要继续自动点击或清理状态
+// 自动点击只允许在 Cornerstone 首页顶层窗口运行；课程弹出页若也运行会清空共享的存储状态，导致主页面停止
+function isCornerstoneHomePage() {
+  return window.top === window && /medtronic\.csod\.com/.test(location.hostname) && /lms-learner-home|\/home/i.test(location.href);
+}
+
 function checkAndContinueAutoClick() {
+  if (!isCornerstoneHomePage()) return;
   console.log('页面加载，检查自动点击状态');
 
   // 检查是否在自动点击过程中
@@ -889,7 +600,7 @@ function checkAndContinueAutoClick() {
 
       const button = document.getElementById('_autoClickInnerBtn');
       if (button) {
-        button.disabled = true;
+        button.title = '再次点击可停止';
         updateButtonState(true);
         updateButtonText(markCompleteCount);
       }
@@ -932,7 +643,7 @@ function cleanupAutoClickState() {
     currentClickCount: 0,
     targetClickCount: 0,
     markCompleteCount: 0,
-    clickedLaunchHrefs: []
+    clickedLaunchHrefs: [], launchAttempts: {}
   });
 
   stopPopupMonitoring();
@@ -949,7 +660,7 @@ function cleanupAutoClickState() {
 
 // 获取已点击过的 Launch 按钮 href 列表
 function getClickedLaunchHrefs(callback) {
-  chrome.storage.local.get(['clickedLaunchHrefs'], function (result) {
+  safeStorageGet(['clickedLaunchHrefs'], function (result) {
     callback(new Set(result.clickedLaunchHrefs || []));
   });
 }
@@ -958,11 +669,12 @@ function getClickedLaunchHrefs(callback) {
 function addClickedLaunchHref(href) {
   getClickedLaunchHrefs(function (set) {
     set.add(href);
-    chrome.storage.local.set({ clickedLaunchHrefs: Array.from(set) });
+    safeStorageSet({ clickedLaunchHrefs: Array.from(set) });
   });
 }
 
 function findAndClickMarkComplete() {
+  if (!isCornerstoneHomePage()) return;
   if (!isExtensionContextValid()) {
     // 插件已更新，停止循环
     isAutoClickRunning = false;
@@ -1002,26 +714,174 @@ function findAndClickMarkComplete() {
   });
 }
 
+// ── Cornerstone 按钮查找：递归遍历 shadow DOM 与同源 iframe，兼容 a/button/role=button ──
+const CORNERSTONE_BTN_PATTERNS = {
+  launch: /^(launch|启动)$/i,
+  markComplete: /mark\s*complete|标记.{0,4}完成|^标记$/i
+};
+const CORNERSTONE_BTN_SELECTOR = 'a, button, [role="button"], input[type="button"], input[type="submit"]';
+
+function deepQueryAll(selector, root, out, depth) {
+  out = out || [];
+  depth = depth || 0;
+  if (!root || depth > 8) return out;
+  try { root.querySelectorAll(selector).forEach(el => out.push(el)); } catch (e) {}
+  let all = [];
+  try { all = root.querySelectorAll('*'); } catch (e) {}
+  all.forEach(el => {
+    if (el.shadowRoot) deepQueryAll(selector, el.shadowRoot, out, depth + 1);
+    if (el.tagName === 'IFRAME' || el.tagName === 'FRAME') {
+      try { if (el.contentDocument) deepQueryAll(selector, el.contentDocument, out, depth + 1); } catch (e) {}
+    }
+  });
+  return out;
+}
+
+function isCornerstoneElVisible(el) {
+  try {
+    if (el.disabled || el.getAttribute('aria-disabled') === 'true') return false;
+    const r = el.getBoundingClientRect();
+    const win = el.ownerDocument.defaultView;
+    const cs = win.getComputedStyle(el);
+    return (r.width > 0 || r.height > 0) && cs.visibility !== 'hidden' && cs.display !== 'none';
+  } catch (e) { return true; }
+}
+
+function matchCornerstoneButton(el, kind) {
+  const re = CORNERSTONE_BTN_PATTERNS[kind];
+  const texts = [
+    el.getAttribute('title'), el.getAttribute('aria-label'), el.getAttribute('data-tag'),
+    el.value, (el.textContent || '').replace(/\s+/g, ' ').trim()
+  ].filter(Boolean).map(s => s.trim());
+  return texts.some(t => t.length <= 40 && re.test(t));
+}
+
+function findCornerstoneButtons(kind) {
+  return deepQueryAll(CORNERSTONE_BTN_SELECTOR, document)
+    .filter(el => matchCornerstoneButton(el, kind) && isCornerstoneElVisible(el));
+}
+
+function clickCornerstoneElement(el) {
+  const win = el.ownerDocument.defaultView || window;
+  const href = el.getAttribute('href');
+  const isJsHref = href && href.trim().toLowerCase().startsWith('javascript');
+  // 避免 javascript: href 触发 CSP，仅触发事件监听器
+  if (isJsHref) el.removeAttribute('href');
+  try {
+    el.scrollIntoView({ block: 'center' });
+    ['pointerdown', 'mousedown', 'pointerup', 'mouseup'].forEach(type => {
+      el.dispatchEvent(new MouseEvent(type, { view: win, bubbles: true, cancelable: true }));
+    });
+    el.click();
+  } finally {
+    if (isJsHref) el.setAttribute('href', href);
+  }
+  cornerstoneDevLog('click', { tag: el.tagName, title: el.getAttribute('title'), text: (el.textContent || '').trim().slice(0, 40), href });
+}
+
+// ── 开发者模式（storage.devMode）：详细日志 + 诊断 + CDP 调试入口 ──
+let cornerstoneDevMode = false;
+let cornerstoneDevPanel = false; // 页面诊断面板默认隐藏，需要时在控制台设置 chrome.storage.local devPanel=true
+safeStorageGet(['devMode', 'devPanel'], r => { cornerstoneDevMode = !!r.devMode; cornerstoneDevPanel = !!r.devPanel; });
+try {
+  chrome.storage.onChanged.addListener(changes => {
+    if (changes.devMode) cornerstoneDevMode = !!changes.devMode.newValue;
+    if (changes.devPanel) cornerstoneDevPanel = !!changes.devPanel.newValue;
+  });
+} catch (e) {}
+
+function cornerstoneDevLog(event, data) {
+  if (!cornerstoneDevMode) return;
+  console.log('[MWA-DEV]', event, data || '');
+  try {
+    const log = JSON.parse(document.documentElement.dataset.mwaDevLog || '[]');
+    log.push({ t: new Date().toISOString(), event, data });
+    document.documentElement.dataset.mwaDevLog = JSON.stringify(log.slice(-50));
+  } catch (e) {}
+}
+
+function cornerstoneDiagnose() {
+  const describe = el => ({
+    tag: el.tagName, title: el.getAttribute('title'), aria: el.getAttribute('aria-label'),
+    text: (el.textContent || '').trim().slice(0, 40), href: el.getAttribute('href'),
+    visible: isCornerstoneElVisible(el), frame: el.ownerDocument === document ? 'top' : 'iframe'
+  });
+  const candidates = deepQueryAll(CORNERSTONE_BTN_SELECTOR, document)
+    .filter(el => /launch|complete|启动|标记|完成/i.test((el.getAttribute('title') || '') + (el.getAttribute('aria-label') || '') + (el.textContent || '')))
+    .slice(0, 30).map(describe);
+  const info = {
+    url: location.href,
+    state: { isAutoClickRunning, currentClickCount, targetClickCount, markCompleteCount },
+    launch: findCornerstoneButtons('launch').map(describe),
+    markComplete: findCornerstoneButtons('markComplete').map(describe),
+    candidates,
+    iframes: document.querySelectorAll('iframe').length
+  };
+  try { document.documentElement.dataset.mwaDiag = JSON.stringify(info); } catch (e) {}
+  return info;
+}
+
+// 开发者模式下在页面左下角显示实时诊断（可在无 CDP 时直接查看/被无障碍树读取）
+function renderCornerstoneDevPanel() {
+  let el = document.getElementById('mwa-dev-panel');
+  if (!cornerstoneDevMode || !cornerstoneDevPanel) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'mwa-dev-panel';
+    el.style.cssText = 'position:fixed;left:110px;bottom:8px;z-index:2147483647;max-width:520px;max-height:40vh;overflow:auto;background:rgba(0,0,0,.85);color:#9f9;font:11px/1.4 Consolas,monospace;padding:6px 8px;border-radius:6px;white-space:pre-wrap';
+    document.body.appendChild(el);
+  }
+  const d = cornerstoneDiagnose();
+  const fmt = a => a.map(x => `${x.tag}[${x.frame}] "${x.title || x.aria || x.text}" vis=${x.visible}`).join('\n  ') || '(none)';
+  el.textContent = `[MWA-DEV] run=${d.state.isAutoClickRunning} done=${d.state.markCompleteCount}/${d.state.targetClickCount} launchTried=${d.state.currentClickCount} iframes=${d.iframes}\nLaunch:\n  ${fmt(d.launch)}\nMarkComplete:\n  ${fmt(d.markComplete)}\nCandidates:\n  ${fmt(d.candidates.slice(0, 12))}`;
+}
+if (window.top === window && window.location.href.includes('medtronic.csod.com')) {
+  setInterval(() => { try { renderCornerstoneDevPanel(); } catch (e) {} }, 3000);
+}
+
+// 供 MAIN world 的 dev_bridge.js 通过 postMessage 调用（CDP: window.__mwaDev.diagnose()）
+if (window.top === window && window.location.href.includes('medtronic.csod.com')) {
+  window.addEventListener('message', e => {
+    if (e.source !== window || !e.data || e.data.source !== 'mwa-dev-req') return;
+    safeStorageGet(['devMode'], r => {
+      if (!r.devMode) return;
+      let result;
+      try {
+        if (e.data.cmd === 'diagnose') result = cornerstoneDiagnose();
+        else if (e.data.cmd === 'start') { document.getElementById('_autoClickInnerBtn')?.click(); result = 'toggled'; }
+        else if (e.data.cmd === 'step') { continueClicking(); result = 'stepped'; }
+        else if (e.data.cmd === 'click') {
+          const els = findCornerstoneButtons(e.data.kind);
+          if (els[0]) clickCornerstoneElement(els[0]);
+          result = els.length ? 'clicked' : 'not found';
+        } else if (e.data.cmd === 'log') result = JSON.parse(document.documentElement.dataset.mwaDevLog || '[]');
+        else if (e.data.cmd === 'reload') { chrome.runtime.reload(); result = 'reloading'; }
+      } catch (err) { result = 'error: ' + err.message; }
+      window.postMessage({ source: 'mwa-dev-res', id: e.data.id, result }, '*');
+    });
+  });
+}
+
 // 继续执行点击逻辑的函数
+const LAUNCH_MAX_PER_TARGET = 1;
+const LAUNCH_COOLDOWN_MS = 90000;
+let lastMarkCompleteEl = null;
+let lastMarkCompleteAt = 0;
+const NO_BUTTON_CHECKS_BEFORE_RELOAD = 15;
 function continueClicking() {
   // ── 优先：Mark Complete / 标记完成 ──
-  const allLinks = Array.from(document.querySelectorAll('a'));
-  const markCompleteBtn = allLinks.find(link => {
-    const title = link.getAttribute('title') || '';
-    const text  = link.textContent?.trim() || '';
-    return title.includes('Mark Complete') || title.includes('标记') ||
-           text.includes('Mark Complete')  || text.includes('标记');
-  });
+  const markCompleteBtn = findCornerstoneButtons('markComplete')[0];
 
   if (markCompleteBtn) {
-    if (noButtonTimeout) { clearTimeout(noButtonTimeout); noButtonTimeout = null; }
-    // 同样避免触发 javascript: href
-    const originalHref = markCompleteBtn.getAttribute('href');
-    if (originalHref && originalHref.toLowerCase().startsWith('javascript')) {
-      markCompleteBtn.removeAttribute('href');
+    // 同一个按钮 15 秒内不重复计数，避免页面还没刷新就把一次点击算成多次完成
+    if (markCompleteBtn === lastMarkCompleteEl && Date.now() - lastMarkCompleteAt < 15000) {
+      setTimeout(findAndClickMarkComplete, 3000);
+      return;
     }
-    markCompleteBtn.dispatchEvent(new MouseEvent('click', { view: window, bubbles: true, cancelable: true }));
-    if (originalHref) markCompleteBtn.setAttribute('href', originalHref);
+    lastMarkCompleteEl = markCompleteBtn;
+    lastMarkCompleteAt = Date.now();
+    if (noButtonTimeout) { clearTimeout(noButtonTimeout); noButtonTimeout = null; }
+    clickCornerstoneElement(markCompleteBtn);
     markCompleteCount++;
     safeStorageSet({ markCompleteCount });
     updateButtonText(markCompleteCount);
@@ -1034,42 +894,66 @@ function continueClicking() {
   }
 
   // ── 其次：按顺序点击 Launch / 启动（用 currentClickCount 作为索引）──
-  const allLaunchButtons = Array.from(
-    document.querySelectorAll('a[title="Launch"], a[title="启动"]')
-  ).filter(btn => {
-    const href = (btn.getAttribute('href') || '').trim();
-    // 排除 test 按钮
-    const title = (btn.getAttribute('title') || '').trim();
-    return title === 'Launch' || title === '启动';
-  });
+  const allLaunchButtons = findCornerstoneButtons('launch');
 
   console.log(`Launch 按钮总数: ${allLaunchButtons.length}, Launch尝试次数: ${currentClickCount}, 完成次数: ${markCompleteCount}/${targetClickCount}`);
 
+  // 防死循环：总尝试上限
+  if (currentClickCount >= targetClickCount * 3 + 5) {
+    console.warn('Launch 尝试次数超过上限，停止自动点击以防死循环');
+    cornerstoneDevLog('abort', { reason: 'launch cap', currentClickCount });
+    finishAutoClick();
+    return;
+  }
+
   if (allLaunchButtons.length > 0) {
-    // 不用 currentClickCount 当数组下标。Cornerstone 页面常常只显示当前批次/当前页的少量 Launch，
-    // 用全局累计数取下标会在点过 1-2 个后越界，导致误判为无按钮并提前退出。
-    const btn = allLaunchButtons[0];
-    if (noButtonTimeout) { clearTimeout(noButtonTimeout); noButtonTimeout = null; }
+    // 每个 Launch 目标（课程卡片+href）有尝试次数上限和冷却时间，避免同一个打不完/不会变成 Mark Complete 的课程被反复打开
+    safeStorageGet(['launchAttempts'], res => {
+      const attempts = res.launchAttempts || {};
+      const now = Date.now();
+      const keyOf = b => {
+        try {
+          // 用按钮自带的 "Launch: 课程名" 作为稳定标识；卡片文字会随状态变化
+          const label = b.getAttribute('aria-label') || b.getAttribute('title') || '';
+          if (/launch.*:|启动.*:/i.test(label)) return label.trim();
+          const card = b.closest('li, tr, [class*="card"], [class*="item"], [data-tag]') || b.parentElement;
+          return (b.getAttribute('href') || '') + '|' + ((card && card.textContent) || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+        } catch (e) {
+          cornerstoneDevLog('keyOf-error', String(e));
+          return String(b.getAttribute('title') || '') + '|' + allLaunchButtons.indexOf(b);
+        }
+      };
+      const btn = allLaunchButtons.find(b => {
+        const a = attempts[keyOf(b)];
+        return !a || ((a.n || 0) < LAUNCH_MAX_PER_TARGET && now - (a.t || 0) > LAUNCH_COOLDOWN_MS);
+      });
 
-    // 阻止 href="javascript:..." 被浏览器执行（触发 CSP），改为只触发 click 事件监听器
-    const clickEvent = new MouseEvent('click', { view: window, bubbles: true, cancelable: true });
-    // 如果有 onclick 属性，直接调用；否则 dispatchEvent
-    if (btn.onclick) {
-      btn.onclick(clickEvent);
-    } else {
-      // 临时移除 href 避免 CSP，触发后恢复
-      const originalHref = btn.getAttribute('href');
-      btn.removeAttribute('href');
-      btn.dispatchEvent(clickEvent);
-      if (originalHref) btn.setAttribute('href', originalHref);
-    }
-    currentClickCount++;
-    safeStorageSet({ currentClickCount });
-    consecutiveNoButtonChecks = 0;
-    console.log(`点击 Launch，Launch尝试次数=${currentClickCount}, href="${btn.getAttribute('href')}"`);
+      if (!btn) {
+        consecutiveNoButtonChecks++;
+        cornerstoneDevLog('launch-skipped', { buttons: allLaunchButtons.length, stall: consecutiveNoButtonChecks });
+        if (consecutiveNoButtonChecks >= 20) {
+          console.warn('所有 Launch 目标都已达到尝试上限，停止');
+          finishAutoClick();
+          return;
+        }
+        setTimeout(findAndClickMarkComplete, 3000);
+        return;
+      }
 
-    if (markCompleteCount >= targetClickCount) { finishAutoClick(); return; }
-    setTimeout(findAndClickMarkComplete, 3000);
+      const key = keyOf(btn);
+      attempts[key] = { n: (attempts[key]?.n || 0) + 1, t: now };
+      safeStorageSet({ launchAttempts: attempts });
+      if (noButtonTimeout) { clearTimeout(noButtonTimeout); noButtonTimeout = null; }
+
+      clickCornerstoneElement(btn);
+      currentClickCount++;
+      safeStorageSet({ currentClickCount });
+      consecutiveNoButtonChecks = 0;
+      console.log(`点击 Launch，Launch尝试次数=${currentClickCount}, 目标第${attempts[key].n}次, href="${btn.getAttribute('href')}"`);
+
+      if (markCompleteCount >= targetClickCount) { finishAutoClick(); return; }
+      setTimeout(findAndClickMarkComplete, 3000);
+    });
     return;
   }
 
@@ -1077,7 +961,8 @@ function continueClicking() {
   consecutiveNoButtonChecks++;
   console.log(`未找到按钮，累计 ${consecutiveNoButtonChecks} 次`);
 
-  if (consecutiveNoButtonChecks >= 3) {
+  // 页面（尤其是刷新后的 SPA）渲染较慢，连续约 15 秒都没有按钮才刷新，避免无限刷新循环
+  if (consecutiveNoButtonChecks >= NO_BUTTON_CHECKS_BEFORE_RELOAD) {
     consecutiveNoButtonChecks = 0;
     safeStorageGet(['noButtonRefreshAttempts'], res => {
       noButtonRefreshAttempts = (res.noButtonRefreshAttempts || 0) + 1;
@@ -1109,7 +994,7 @@ function finishAutoClick() {
   markCompleteCount  = 0;
   safeStorageSet({
     isAutoClickRunning: false, currentClickCount: 0, targetClickCount: 0,
-    markCompleteCount: 0, clickedLaunchHrefs: [], noButtonRefreshAttempts: 0
+    markCompleteCount: 0, clickedLaunchHrefs: [], launchAttempts: {}, noButtonRefreshAttempts: 0
   }, () => {
     const btn = document.getElementById('_autoClickInnerBtn');
     if (btn) { btn.disabled = false; updateButtonState(false); }
@@ -1128,13 +1013,16 @@ function toggleAutoNext(btn) {
     isAutoNextRunning = false;
     if (autoNextTimer) { clearTimeout(autoNextTimer); autoNextTimer = null; }
     btn.textContent = '▶ 开始';
-    btn.style.background = 'rgba(120,60,200,0.8)';
+    btn.classList.add('indigo');
+    btn.classList.remove('danger');
   } else {
     isAutoNextRunning = true;
     btn.textContent = '■ 停止';
-    btn.style.background = 'rgba(220,80,80,0.85)';
+    btn.classList.add('danger');
+    btn.classList.remove('indigo');
     runAutoNext();
   }
+  refreshCornerstoneDock();
 }
 
 // 查找 #next 按钮（含 iframe）
@@ -1180,7 +1068,7 @@ function clickNextButton(callback) {
   function doClick() {
     if (!isAutoNextRunning) return;
     const nextEl = findNextButton();
-    if (!nextEl) {
+    if (!nextEl || nextEl.disabled || nextEl.getAttribute('aria-disabled') === 'true') {
       autoNextTimer = setTimeout(() => runAutoNext(), 5000);
       return;
     }
@@ -1234,7 +1122,10 @@ function skipVideosToEnd() {
       doc.querySelectorAll('video').forEach(v => {
         try {
           if (v.duration && isFinite(v.duration)) {
-            v.currentTime = v.duration - 0.1;
+            v.muted = true;
+            v.currentTime = Math.max(0, v.duration - 0.1);
+            // 暂停状态下不会触发 ended 事件，需要让它播放到末尾
+            if (v.paused && !v.ended) v.play().catch(() => {});
             found++;
           }
         } catch(e) {}
@@ -1305,7 +1196,7 @@ function initializeAutoClickButton() {
   // 只在 Cornerstone 页面显示
   if (!window.location.href.includes('medtronic.csod.com')) return;
 
-  chrome.storage.local.get(['autoClickEnabled'], function (result) {
+  safeStorageGet(['autoClickEnabled'], function (result) {
     if (!result.autoClickEnabled) return;
 
     const panel = createFloatingButton();
@@ -1314,24 +1205,30 @@ function initializeAutoClickButton() {
     initializeButtonText();
 
     clickBtn.addEventListener('click', function () {
+      if (isAutoClickRunning) {
+        // 运行中再点一次即停止
+        cleanupAutoClickState();
+        chrome.runtime.sendMessage({ action: 'cornerstoneAutoClickStopped' }, () => { void chrome.runtime.lastError; });
+        return;
+      }
       if (!isAutoClickRunning) {
-        chrome.storage.local.get(['clickCount'], function (result) {
+        safeStorageGet(['clickCount'], function (result) {
           const clickCount = result.clickCount || 30;
           isAutoClickRunning = true;
           currentClickCount  = 0;
           targetClickCount   = clickCount;
           markCompleteCount  = 0;
 
-          chrome.storage.local.set({
+          safeStorageSet({
             isAutoClickRunning: true,
             currentClickCount: 0,
             targetClickCount: clickCount,
             markCompleteCount: 0,
-            clickedLaunchHrefs: [],
+            clickedLaunchHrefs: [], launchAttempts: {},
             noButtonRefreshAttempts: 0
           });
 
-          clickBtn.disabled = true;
+          clickBtn.title = '再次点击可停止';
           updateButtonState(true);
           updateButtonText(0);
           startPopupMonitoring();
@@ -1360,23 +1257,8 @@ const observer = new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
     if (mutation.addedNodes.length) {
       console.log('检测到DOM变化，检查是否可以尝试填充');
-      // 根据当前系统检查对应的登录尝试次数
       const currentUrl = window.location.href;
-      if (currentUrl.includes('khplm.medtronic.com.cn')) {
-        startWindchillAutoFillWatcher();
-        chrome.storage.local.get(['windchillLoginAttempts'], function(result) {
-          const attempts = result.windchillLoginAttempts || 0;
-          if (attempts >= MAX_LOGIN_ATTEMPTS) {
-            console.log(`Windchill 登录尝试次数已达到最大值 (${attempts}/${MAX_LOGIN_ATTEMPTS})，跳过自动填充`);
-          } else {
-            autoFillCredentials();
-          }
-        });
-      } else if (currentUrl.includes('ehr.medtronic.com.cn')) {
-        // EHR 系统不进行登录检测，直接填充
-        autoFillCredentials();
-      } else {
-        // 其他系统直接填充
+      if (currentUrl.includes('ehr.medtronic.com.cn')) {
         autoFillCredentials();
       }
     }
@@ -1395,62 +1277,25 @@ observer.observe(document.body, config);
 // 等待DOM加载完成后执行自动填充
 console.log('当前文档状态:', document.readyState);
 
-// 页面刷新或重新打开时，重置登录尝试次数（不从存储恢复）
-// 这样每次打开页面都会重新尝试自动填充
-windchillLoginAttempts = 0;
+// 页面刷新或重新打开时，重置 EHR 登录尝试次数。
 ehrLoginAttempts = 0;
-console.log('页面加载，重置所有系统的登录尝试次数');
-chrome.storage.local.set({ 
-  windchillLoginAttempts: 0,
-  ehrLoginAttempts: 0
-});
+console.log('页面加载，重置 EHR 登录尝试次数');
+safeStorageSet({ ehrLoginAttempts: 0 });
 
 if (document.readyState === 'complete') {
   console.log('文档已完全加载，检查是否可以执行自动填充');
-  // 根据当前系统检查对应的登录尝试次数
   const currentUrl = window.location.href;
-  if (currentUrl.includes('khplm.medtronic.com.cn')) {
-    startWindchillAutoFillWatcher();
-    chrome.storage.local.get(['windchillLoginAttempts'], function(result) {
-      const attempts = result.windchillLoginAttempts || 0;
-      if (attempts >= MAX_LOGIN_ATTEMPTS) {
-        console.log(`Windchill 登录尝试次数已达到最大值 (${attempts}/${MAX_LOGIN_ATTEMPTS})，跳过自动填充`);
-      } else {
-        console.log('Windchill 登录尝试次数未达到最大值，执行自动填充');
-        autoFillCredentials();
-      }
-    });
-  } else if (currentUrl.includes('ehr.medtronic.com.cn')) {
-    // EHR 系统不进行登录检测，直接填充
+  if (currentUrl.includes('ehr.medtronic.com.cn')) {
     console.log('EHR 系统，直接执行自动填充');
-    autoFillCredentials();
-  } else {
-    // 其他系统直接填充
     autoFillCredentials();
   }
 } else {
   console.log('文档尚未完全加载，添加load事件监听器');
   window.addEventListener('load', () => {
     console.log('文档加载完成，检查是否可以执行自动填充');
-    // 根据当前系统检查对应的登录尝试次数
     const currentUrl = window.location.href;
-    if (currentUrl.includes('khplm.medtronic.com.cn')) {
-      startWindchillAutoFillWatcher();
-      chrome.storage.local.get(['windchillLoginAttempts'], function(result) {
-        const attempts = result.windchillLoginAttempts || 0;
-        if (attempts >= MAX_LOGIN_ATTEMPTS) {
-          console.log(`Windchill 登录尝试次数已达到最大值 (${attempts}/${MAX_LOGIN_ATTEMPTS})，跳过自动填充`);
-        } else {
-          console.log('Windchill 登录尝试次数未达到最大值，执行自动填充');
-          autoFillCredentials();
-        }
-      });
-    } else if (currentUrl.includes('ehr.medtronic.com.cn')) {
-      // EHR 系统不进行登录检测，直接填充
+    if (currentUrl.includes('ehr.medtronic.com.cn')) {
       console.log('EHR 系统，直接执行自动填充');
-      autoFillCredentials();
-    } else {
-      // 其他系统直接填充
       autoFillCredentials();
     }
   });
@@ -1460,20 +1305,13 @@ if (document.readyState === 'complete') {
 chrome.storage.onChanged.addListener((changes, namespace) => {
   console.log('检测到存储变化:', { changes, namespace });
   if (namespace === 'local') {
-    if (changes.username || changes.password || changes.Login1 || changes.Password1) {
+    if (changes.Login1 || changes.Password1) {
       console.log('用户名或密码发生变化，检查是否可以重新执行自动填充');
-      // 用户更新了账号密码，重置对应系统的登录尝试次数
       const currentUrl = window.location.href;
-      if (currentUrl.includes('khplm.medtronic.com.cn') && (changes.username || changes.password)) {
-        windchillLoginAttempts = 0;
-        chrome.storage.local.set({ windchillLoginAttempts: 0 }, () => {
-          console.log('已重置 Windchill 登录尝试次数，重新执行自动填充');
-          startWindchillAutoFillWatcher();
-          autoFillCredentials();
-        });
-      } else if (currentUrl.includes('ehr.medtronic.com.cn') && (changes.Login1 || changes.Password1)) {
+      if (currentUrl.includes('ehr.medtronic.com.cn')) {
         ehrLoginAttempts = 0;
-        chrome.storage.local.set({ ehrLoginAttempts: 0 }, () => {
+        ehrFillState = 'idle';
+        safeStorageSet({ ehrLoginAttempts: 0 }, () => {
           console.log('已重置 EHR 登录尝试次数，重新执行自动填充');
           autoFillCredentials();
         });
@@ -1500,10 +1338,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       cleanupAutoClickState();
     }
     
-    // 重置所有系统的登录尝试计数
-    windchillLoginAttempts = 0;
     ehrLoginAttempts = 0;
-    console.log('重置所有系统的登录尝试计数');
+    console.log('重置 EHR 登录尝试计数');
     
     // 移除可能存在的 Toast 通知
     const toast = document.getElementById('kiro-toast-notification');
@@ -1532,118 +1368,52 @@ function findAndClosePopup() {
     return;
   }
 
-  // 常见的弹出窗体选择器
+  // 只处理真正的对话框；.tooltip/.popover 常驻 DOM，.close 也可能是普通按钮。
   const popupSelectors = [
-    // 模态框
-    '.modal',
-    '.modal-dialog',
-    '.modal-content',
-    '[role="dialog"]',
-    '[aria-modal="true"]',
-    // 弹出框
-    '.popup',
-    '.popover',
-    '.tooltip',
-    // 特定类名
-    '.p-dialog',
-    '.p-overlay-panel',
-    '.p-confirm-dialog',
-    // 关闭按钮
-    '.close',
-    '.btn-close',
-    '[data-dismiss="modal"]',
-    '[aria-label="Close"]',
-    '[title="Close"]'
+    '.modal', '.modal-dialog', '[role="dialog"]', '[aria-modal="true"]',
+    '.popup', '.p-dialog', '.p-overlay-panel', '.p-confirm-dialog'
   ];
-
-  let popupFound = false;
-
   const closeButtonSelectors = [
-    '.modal .close',
-    '.modal-dialog .close',
-    '.modal-content .close',
-    '.btn-close',
-    '[data-dismiss="modal"]',
-    '[aria-label="Close"]',
-    '[title="Close"]',
-    'button.close'
+    '.close', '.btn-close', '[data-dismiss="modal"]',
+    '[aria-label="Close"]', '[aria-label="关闭"]', '[title="Close"]', '[title="关闭"]'
   ];
 
-  function pressEscape(doc) {
-    doc.dispatchEvent(new KeyboardEvent('keydown', {
-      key: 'Escape',
-      keyCode: 27,
-      which: 27,
-      bubbles: true
-    }));
+  function isVisible(el) {
+    if (!el || !el.ownerDocument) return false;
+    const view = el.ownerDocument.defaultView;
+    if (!view) return false;
+    const style = view.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
   }
 
-  function clickCloseButton(doc) {
-    for (const selector of closeButtonSelectors) {
-      try {
-        const closeBtn = doc.querySelector(selector);
+  function closePopupIn(doc) {
+    for (const selector of popupSelectors) {
+      let popup = null;
+      try { popup = Array.from(doc.querySelectorAll(selector)).find(isVisible); } catch (e) {}
+      if (!popup) continue;
+      console.log('找到弹出窗体:', selector);
+      // 只在该弹窗内部找可见的关闭按钮，避免误点页面上的其他按钮
+      for (const closeSelector of closeButtonSelectors) {
+        const closeBtn = Array.from(popup.querySelectorAll(closeSelector)).find(isVisible);
         if (closeBtn) {
-          console.log('找到弹窗关闭按钮:', selector);
           closeBtn.click();
           return true;
         }
-      } catch (error) {
-        console.log('查找弹窗关闭按钮失败:', error);
       }
+      doc.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+      return true;
     }
     return false;
   }
 
-  // 查找弹出窗体
-  for (const selector of popupSelectors) {
-    try {
-      const elements = document.querySelectorAll(selector);
-      if (elements.length > 0) {
-        console.log('找到弹出窗体:', selector);
-        popupFound = true;
-
-        if (!clickCloseButton(document)) {
-          console.log('按ESC键关闭弹窗');
-          pressEscape(document);
-        }
-
-        return true;
-      }
-    } catch (error) {
-      console.log('查找弹出窗体时出错:', error);
-    }
-  }
-
-  // 查找iframe中的弹出窗体
-  const iframes = document.getElementsByTagName('iframe');
-  for (const iframe of iframes) {
+  if (closePopupIn(document)) return true;
+  for (const iframe of document.getElementsByTagName('iframe')) {
     try {
       const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      for (const selector of popupSelectors) {
-        try {
-          const elements = iframeDoc.querySelectorAll(selector);
-          if (elements.length > 0) {
-            console.log('在iframe中找到弹出窗体:', selector);
-            popupFound = true;
-
-            if (!clickCloseButton(iframeDoc)) {
-              console.log('在iframe中按ESC键关闭弹窗');
-              pressEscape(iframeDoc);
-            }
-
-            return true;
-          }
-        } catch (error) {
-          console.log('在iframe中查找弹出窗体时出错:', error);
-        }
-      }
-    } catch (error) {
-      console.log('访问iframe失败:', error);
-    }
-  }
-
-  if (!popupFound) {
-    console.log('未找到弹出窗体');
+      if (iframeDoc && closePopupIn(iframeDoc)) return true;
+    } catch (error) {}
   }
   return false;
 }
@@ -1747,7 +1517,7 @@ function handleIndependentBrowserWindows() {
   }
 
   // 检查是否开启了自动点击功能
-  chrome.storage.local.get(['autoClickEnabled'], function (result) {
+  safeStorageGet(['autoClickEnabled'], function (result) {
     if (!result.autoClickEnabled) {
       console.log('自动点击功能未开启，跳过独立浏览器页面处理');
       return;

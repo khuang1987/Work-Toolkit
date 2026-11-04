@@ -21,6 +21,10 @@ node_modules/
 dist/
 build/
 
+# .NET
+bin/
+obj/
+
 # Python Build
 *.spec
 build/
@@ -40,5 +44,12 @@ python-scripts/office-assistant/.venv/
 python-scripts/office-assistant/src/__pycache__/
 python-scripts/office-assistant/**/*.pyc
 
+# Caleb Desktop Pet（安装包体积大，仅保留本地副本和校验值）
+python-scripts/caleb-desktop-pet/release/*.zip
+!python-scripts/caleb-desktop-pet/CalebDesktopPet.spec
+
 # Archive
 _archive/
+
+# 本机快捷方式
+*.lnk

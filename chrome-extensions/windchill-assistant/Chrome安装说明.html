@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Windchill Work Assistant 安装说明</title>
+  <style>
+    body { margin: 0; padding: 32px 18px; background: #f3f8fb; color: #173447; font: 15px/1.7 "Microsoft YaHei", "Segoe UI", sans-serif; }
+    main { max-width: 760px; margin: auto; padding: 28px 32px; background: #fff; border: 1px solid #cfe0e8; border-radius: 16px; box-shadow: 0 8px 24px #0b456018; }
+    h1 { margin: 0 0 6px; color: #075e9c; font-size: 25px; }
+    h2 { margin: 24px 0 8px; color: #073c68; font-size: 18px; }
+    .version { color: #5a7484; }
+    .note { padding: 12px 14px; border-left: 4px solid #087f9c; background: #eaf6fa; border-radius: 6px; }
+    li { margin: 6px 0; }
+    code { padding: 2px 5px; background: #eef3f6; border-radius: 4px; color: #075e9c; }
+    .warning { border-left-color: #d88718; background: #fff7e8; }
+    footer { margin-top: 26px; color: #6b7f8c; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Windchill Work Assistant</h1>
+    <div class="version">Chrome 本地安装说明 · v1.5.2</div>
+
+    <p class="note">本安装包用于公司内部测试。安装不需要 Google 账号，但需要在 Chrome 中开启一次“开发者模式”。</p>
+
+    <h2>一、解压安装包</h2>
+    <ol>
+      <li>右键 ZIP 文件，选择“全部解压缩”。</li>
+      <li>将解压后的文件夹保存到不会被删除的位置，例如“文档\Windchill Work Assistant”。</li>
+      <li>确认该文件夹内可以看到 <code>manifest.json</code> 文件。</li>
+    </ol>
+
+    <h2>二、加载到 Chrome</h2>
+    <ol>
+      <li>打开 Chrome，在地址栏输入 <code>chrome://extensions</code> 并回车。</li>
+      <li>打开右上角的“开发者模式”。</li>
+      <li>点击“加载已解压的扩展程序”。</li>
+      <li>选择刚才解压、且包含 <code>manifest.json</code> 的文件夹，然后点击“选择文件夹”。</li>
+      <li>看到“Windchill Work Assistant”卡片后，说明安装完成。</li>
+    </ol>
+
+    <h2>三、开始使用</h2>
+    <ol>
+      <li>打开或刷新公司 Windchill 页面。</li>
+      <li>右下角出现“Windchill 助手”输入框后即可使用。</li>
+      <li>第一次使用登录填充时，点击 Chrome 工具栏的扩展图标，填写并保存账号密码。</li>
+      <li>如需使用审批摘要，点击助手顶部的“审批摘要”。</li>
+    </ol>
+
+    <h2>四、固定助手图标</h2>
+    <ol>
+      <li>点击 Chrome 工具栏右侧的拼图图标。</li>
+      <li>找到“Windchill Work Assistant”。</li>
+      <li>点击右侧的图钉，将它固定到工具栏。</li>
+    </ol>
+
+    <h2>常见问题</h2>
+    <ul>
+      <li><strong>找不到“加载已解压的扩展程序”：</strong>请确认“开发者模式”已经打开。</li>
+      <li><strong>提示无法安装：</strong>请使用“加载已解压的扩展程序”，不要双击 ZIP 文件。</li>
+      <li><strong>助手没有出现：</strong>确认当前网址是公司 Windchill，并刷新页面。</li>
+      <li><strong>更新版本：</strong>下载新版并解压到新文件夹，在扩展页面移除旧版本后重新加载新文件夹。</li>
+      <li><strong>安全提示：</strong>不要删除已加载的文件夹，也不要修改其中的文件名。</li>
+    </ul>
+
+    <p class="note warning">本扩展只使用当前 Windchill 页面权限，不提供批量下载，也不会把账号密码发送给项目维护者。</p>
+    <footer>Windchill Work Assistant · 内部测试版本 1.5.2</footer>
+  </main>
+</body>
+</html>

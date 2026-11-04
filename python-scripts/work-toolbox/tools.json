@@ -1,0 +1,293 @@
+{
+  "app": {
+    "title": "工作工具箱",
+    "theme": "dark",
+    "accent": "#31A8FF",
+    "show_floating_toolbox": true,
+    "floating_tools": [
+      "fabriq",
+      "windchill",
+      "ehr",
+      "ai-chat",
+      "todo",
+      "obsidian",
+      "quick-meeting"
+    ],
+    "hide_codex_status_when_idle": true,
+    "floating_dock": {
+      "remember_position": true,
+      "lock_position": false,
+      "background": "taskbar"
+    },
+    "drawers": [
+      {
+        "title": "网络与远程",
+        "groups": [
+          "网络",
+          "SSH",
+          "RDP"
+        ],
+        "columns": 1
+      },
+      {
+        "title": "AI Agent",
+        "groups": [
+          "AI Agent"
+        ],
+        "columns": 1
+      },
+      {
+        "title": "公司系统",
+        "groups": [
+          "公司系统"
+        ],
+        "columns": 2
+      },
+      {
+        "title": "办公效率",
+        "groups": [
+          "办公效率"
+        ],
+        "columns": 2
+      },
+      {
+        "title": "工具箱",
+        "groups": [
+          "工具箱管理"
+        ],
+        "columns": 2
+      }
+    ]
+  },
+  "ai": {
+    "config_file": "%LOCALAPPDATA%\\WorkToolbox\\ai-config.json",
+    "seed_config_file": "%APPDATA%\\CalebDesktopPet\\ai-config.json",
+    "key_file": "%APPDATA%\\CalebDesktopPet\\ai-key.bin",
+    "model": "gpt-5.6-terra",
+    "context_messages": 12,
+    "system_prompt": "",
+    "hotkey_enabled": true,
+    "hotkey_keys": [
+      162
+    ],
+    "voice_alt": true,
+    "voice_key": 165
+  },
+  "tools": [
+    {
+      "id": "wifi-zscaler",
+      "abbr": "Wf",
+      "group": "网络",
+      "label": "Wi-Fi / VPN",
+      "icon": "⚡",
+      "secondary": "Zscaler",
+      "description": "切到 Guest Wi-Fi 2302 建立 Zscaler，验证 Windchill（最多 180 秒），再自动回到旁路由 Wi-Fi；后台运行，进度见底部状态和运行记录",
+      "type": "powershell",
+      "target": "{WORK_TOOLKIT}\\apps\\wifi-zscaler-switcher\\Switch-ZscalerWiFi.ps1",
+      "args": [
+        "-NonInteractive"
+      ]
+    },
+    {
+      "id": "ssh",
+      "group": "SSH",
+      "label": "SSH 服务器",
+      "icon": "⌁",
+      "description": "读取本机 SSH config，点击服务器名称即可打开 SSH 会话",
+      "type": "ssh-list",
+      "target": "{USERPROFILE}\\.ssh\\config",
+      "extra_hosts_file": "{LOCAL_TOOLKIT}\\remote-hosts.json"
+    },
+    {
+      "id": "fabriq",
+      "abbr": "Fq",
+      "group": "公司系统",
+      "label": "Fabriq",
+      "secondary": "任务看板",
+      "description": "打开 Fabriq 任务页面",
+      "type": "url",
+      "target": "https://medtronic.fabriq.tech/tasks"
+    },
+    {
+      "id": "windchill",
+      "abbr": "Wc",
+      "group": "公司系统",
+      "label": "Windchill",
+      "icon": "◎",
+      "secondary": "公司系统",
+      "description": "打开公司 Windchill 首页",
+      "type": "url",
+      "target": "https://khplm.medtronic.com.cn/Windchill/app/#ptc1/homepage"
+    },
+    {
+      "id": "ehr",
+      "abbr": "Hr",
+      "group": "公司系统",
+      "label": "EHR",
+      "secondary": "考勤审批",
+      "description": "打开 EHR 待办审批",
+      "type": "url",
+      "target": "http://ehr.medtronic.com.cn/"
+    },
+    {
+      "id": "agent-codex",
+      "abbr": "Cx",
+      "group": "AI Agent",
+      "label": "Codex",
+      "secondary": "OpenAI 桌面应用",
+      "description": "启动 OpenAI Codex 桌面应用（Microsoft Store 版）",
+      "type": "app",
+      "app_id": "OpenAI.Codex_2p2nqsd0c76g0!App"
+    },
+    {
+      "id": "agent-workbuddy",
+      "abbr": "Wb",
+      "group": "AI Agent",
+      "label": "WorkBuddy",
+      "secondary": "腾讯 CodeBuddy 工作助手",
+      "description": "启动 WorkBuddy 桌面应用",
+      "type": "app",
+      "target": "{LOCALAPPDATA}\\Programs\\WorkBuddy\\WorkBuddy.exe",
+      "app_id": "WorkBuddy.WorkBuddy"
+    },
+    {
+      "id": "agent-copilot",
+      "abbr": "Cp",
+      "group": "AI Agent",
+      "label": "GitHub Copilot",
+      "secondary": "Copilot 桌面应用",
+      "description": "启动 GitHub Copilot 桌面应用",
+      "type": "app",
+      "target": "{LOCALAPPDATA}\\Programs\\GitHub Copilot\\github.exe",
+      "app_id": "com.github.githubapp"
+    },
+    {
+      "id": "agent-opencode",
+      "abbr": "Oc",
+      "group": "AI Agent",
+      "label": "OpenCode",
+      "secondary": "OpenCode 桌面应用",
+      "description": "启动 OpenCode 桌面应用（原 OpenCode Web 脚本已不存在）",
+      "type": "app",
+      "target": "{LOCALAPPDATA}\\Programs\\@opencode-aidesktop\\OpenCode.exe",
+      "app_id": "ai.opencode.desktop"
+    },
+    {
+      "id": "agent-cursor",
+      "abbr": "Cu",
+      "group": "AI Agent",
+      "label": "Cursor",
+      "secondary": "AI 代码编辑器",
+      "description": "启动 Cursor 编辑器",
+      "type": "app",
+      "target": "{LOCALAPPDATA}\\Programs\\cursor\\Cursor.exe",
+      "app_id": "Anysphere.Cursor"
+    },
+    {
+      "id": "ai-chat",
+      "abbr": "Ai",
+      "group": "办公效率",
+      "label": "AI 助手",
+      "icon": "✦",
+      "secondary": "对话",
+      "description": "在悬浮栏上方打开 AI 输入框，回答时向上展开对话",
+      "type": "ai-chat"
+    },
+    {
+      "id": "todo",
+      "abbr": "Td",
+      "group": "办公效率",
+      "label": "待办",
+      "secondary": "AI 整理",
+      "description": "每日待办：输入一句话由 AI 整理成标题、日期、优先级和步骤，角标显示今天到期数",
+      "type": "todo"
+    },
+    {
+      "id": "obsidian",
+      "abbr": "Ob",
+      "group": "办公效率",
+      "label": "Obsidian",
+      "secondary": "笔记 / 待办看板",
+      "description": "打开 Obsidian 笔记库（完整待办在 00-Inbox/待办看板）",
+      "type": "app",
+      "target": "{LOCALAPPDATA}\\Programs\\Obsidian\\Obsidian.exe"
+    },
+    {
+      "id": "quick-meeting",
+      "abbr": "Mt",
+      "group": "办公效率",
+      "label": "一键开会",
+      "secondary": "Teams 转录",
+      "description": "不打开界面，加入年度会议「快捷会议纪要YYYY」并开始转录",
+      "type": "exe",
+      "target": "{WORK_TOOLKIT}\\.venv\\Scripts\\pythonw.exe",
+      "args": ["{WORK_TOOLKIT}\\python-scripts\\quick-meeting\\quick_meeting.py"]
+    },
+    {
+      "id": "sfc-login",
+      "abbr": "Sf",
+      "group": "公司系统",
+      "label": "SFC 登录",
+      "icon": "▣",
+      "description": "使用本机 DPAPI 保存的账号启动 SFC 并自动登录；右侧齿轮打开 SFC 设置",
+      "type": "sfc-login"
+    },
+    {
+      "id": "uac-password",
+      "abbr": "Ad",
+      "group": "工具箱管理",
+      "label": "管理员密码",
+      "icon": "▣",
+      "description": "点击复制管理员密码，在 UAC 窗口按 Ctrl+V 粘贴；右侧钥匙图标录入密码（DPAPI 加密）",
+      "type": "secret-copy"
+    },
+    {
+      "id": "toggle-theme",
+      "abbr": "Th",
+      "group": "办公效率",
+      "label": "深浅色",
+      "icon": "◐",
+      "secondary": "Theme",
+      "description": "调用现有 ToggleTheme 工具",
+      "type": "exe",
+      "target": "{WORK_TOOLKIT}\\apps\\toggle-light-dark\\ToggleTheme.exe"
+    },
+    {
+      "id": "toolbox-folder",
+      "abbr": "Fd",
+      "group": "工具箱管理",
+      "label": "工具箱目录",
+      "icon": "▤",
+      "secondary": "配置 / 文档",
+      "description": "查看配置和启动说明",
+      "type": "folder",
+      "target": "{WORK_TOOLKIT}\\python-scripts\\work-toolbox"
+    },
+    {
+      "id": "worktoolkit-folder",
+      "abbr": "Wk",
+      "group": "工具箱管理",
+      "label": "Work-Toolkit",
+      "icon": "◆",
+      "secondary": "项目根目录",
+      "description": "打开所有工作工具的根目录",
+      "type": "folder",
+      "target": "{WORK_TOOLKIT}"
+    },
+    {
+      "id": "rdp",
+      "group": "RDP",
+      "label": "RDP 服务器",
+      "icon": "▣",
+      "description": "扫描本机保存的 .rdp 文件，点击服务器名称即可启动 Windows 远程桌面",
+      "type": "rdp-list",
+      "search_paths": [
+        "{USERPROFILE}\\OneDrive - Medtronic PLC\\Default.rdp",
+        "{USERPROFILE}\\OneDrive - Medtronic PLC\\Default-9B94F14.rdp",
+        "{USERPROFILE}\\ODSyncRescue-20260824\\files\\Desktop",
+        "{LOCAL_TOOLKIT}\\rdp",
+        "{DESKTOP}"
+      ]
+    }
+  ]
+}

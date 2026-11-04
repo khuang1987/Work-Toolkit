@@ -1,5 +1,7 @@
 # 项目结构说明
 
+Windchill 自动填充、Basic Auth、查询和审批摘要已整合进本扩展（`content_windchill_*.js`、`page_bridge.js`），同步自同级 `windchill-assistant`；后者仍可独立使用。
+
 ## 文件结构
 
 ```
@@ -7,6 +9,9 @@ password-autofill/
 ├── manifest.json           # 插件配置文件
 ├── background.js          # 后台服务脚本
 ├── content.js            # 内容脚本（注入到网页）
+├── mwa_dock.js           # 右下角可折叠悬浮面板（Cornerstone / Workday 共用）
+├── content_workday.js    # Workday 助手（绩效评估 + 并入职务申请页）
+├── content_workday_req.js # Workday 职务申请批量（挂载到助手面板）
 ├── popup.html            # 弹出窗口界面
 ├── popup.js              # 弹出窗口逻辑
 ├── icon.png              # 插件图标（PNG格式）
@@ -37,8 +42,7 @@ Chrome 扩展的配置文件，定义了：
   "name": "Medtronic Smart Assistant",
   "version": "1.3",
   "permissions": [
-    "storage", "tabs", "contextMenus", 
-    "webRequest", "alarms", "notifications"
+    "storage", "tabs", "contextMenus", "alarms", "notifications"
   ]
 }
 ```
@@ -46,10 +50,8 @@ Chrome 扩展的配置文件，定义了：
 ### background.js
 后台服务脚本，持续运行，负责：
 - 监听新标签页创建和更新
-- 处理 HTTP Basic Authentication
 - 管理右键菜单
 - 处理定时任务（每日自动打开）
-- 缓存用户凭据
 - 接收和处理来自其他脚本的消息
 
 **主要功能：**
@@ -61,8 +63,7 @@ Chrome 扩展的配置文件，定义了：
 ### content.js
 内容脚本，注入到目标网页，负责：
 - 自动填充账号密码
-- 检测登录成功/失败
-- 显示登录重试对话框
+- 自动填充 EHR 账号密码
 - Cornerstone 自动点击功能
 - 创建悬浮按钮
 - 监听 DOM 变化
@@ -70,21 +71,18 @@ Chrome 扩展的配置文件，定义了：
 
 **主要功能：**
 - `autoFillCredentials()`: 自动填充凭据
-- `checkLoginSuccess()`: 检查登录是否成功
-- `showLoginRetryDialog()`: 显示重试对话框
 - `findAndClickMarkComplete()`: 查找并点击按钮
-- `createFloatingButton()`: 创建悬浮按钮
+- `createFloatingButton()`: 创建 Cornerstone 右下角可折叠助手面板（基于 `mwa_dock.js`）
 - `startPopupMonitoring()`: 启动弹窗监控
 
 **支持的网站：**
-- `https://khplm.medtronic.com.cn/*` (Windchill)
 - `https://medtronic.csod.com/*` (Cornerstone)
 - `http://ehr.medtronic.com.cn/*` (EHR)
 
 ### popup.html
 弹出窗口的 HTML 结构，包含：
 - 标题栏（带版本号）
-- 系统卡片（Windchill、Cornerstone、EHR）
+- 系统卡片（Cornerstone、EHR）
 - 定时启动卡片
 - 使用提示
 - 状态提示区域
@@ -117,8 +115,6 @@ Chrome 扩展的配置文件，定义了：
 
 ```javascript
 chrome.storage.local.set({
-  username: 'xxx',           // Windchill 用户名
-  password: 'xxx',           // Windchill 密码
   Login1: 'xxx',             // EHR 用户名
   Password1: 'xxx',          // EHR 密码
   clickCount: 30,            // 自动点击次数

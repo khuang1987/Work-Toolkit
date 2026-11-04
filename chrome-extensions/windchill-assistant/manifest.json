@@ -1,0 +1,64 @@
+{
+  "manifest_version": 3,
+  "name": "Windchill Work Assistant",
+  "version": "1.5.2",
+  "description": "Windchill 登录自动填充、审批自动确认、相关度检索与审批摘要助手",
+  "icons": {
+    "128": "icon.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Windchill Work Assistant",
+    "default_icon": "icon.png"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "contextMenus",
+    "webRequest",
+    "webRequestAuthProvider",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://khplm.medtronic.com.cn/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://khplm.medtronic.com.cn/*"
+      ],
+      "js": [
+        "page_bridge.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": false,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://khplm.medtronic.com.cn/*"
+      ],
+      "js": [
+        "content_windchill_login.js",
+        "content_windchill_assistant.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icon.png",
+        "icon.svg"
+      ],
+      "matches": [
+        "https://khplm.medtronic.com.cn/*"
+      ]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

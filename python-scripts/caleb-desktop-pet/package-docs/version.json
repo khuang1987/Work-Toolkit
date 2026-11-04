@@ -1,0 +1,10 @@
+{
+  "name": "Caleb Desktop Pet",
+  "version": "1.8.1",
+  "platform": "windows-x64",
+  "portable": true,
+  "pet": "夏以昼 / Caleb",
+  "features": ["single-click random action", "double-click petting", "compact dismissible menu", "character right-click hide/show", "tray configuration", "first-run nickname", "200 original dialogue lines", "calm varied idle", "4-8 second gaze", "bounded wandering", "window-edge walking and resting", "7-second bubbles with hover pause", "15-second AI reply bubbles", "immersive Caleb roleplay personality", "DeepSeek-V4.1-Flash and OpenAI-compatible model settings", "local chat history and long-term habit memory", "natural-language reminders", "affection", "focus timer", "rock-paper-scissors", "original mini-scenes", "reminder countdowns", "20-minute cross-reminder gap", "optional city weather", "configurable Ctrl trigger and optional right-Alt voice toggle"],
+  "privacy": "Nickname, interaction data, AI history, and AI memory are stored locally. AI questions and selected conversation context are sent only when the user presses send. No keystroke contents or audio recording is stored by the pet. Optional user-selected city queries Open-Meteo.",
+  "known_limits": ["Climbing artwork not approved; feature not enabled", "Unsigned personal fan application", "Voice toggle sends a right-Alt shortcut to the active input method; transcription depends on the installed input method", "AI requires the user's own compatible API key, network access, and provider account"]
+}
