@@ -13,22 +13,6 @@
 - 不提交 `.env`、`config.local.json`、连接字符串、密码、令牌、登录缓存、日志、虚拟环境、`node_modules` 和生成目录。
 - 优先复用项目现有依赖和脚本，避免为小修复引入新依赖。
 
-## WorkshopTracker 例外说明
-
-WorkshopTracker 不在本仓库内，源码位于 `C:\CodeSpeace\WorkshopTracker`。每天 11:00 的同步任务是 Windows 计划任务 `WorkshopTracker Weekly Xlsx Sync`，入口为：
-
-```text
-C:\CodeSpeace\WorkshopTracker\tools\reporting-sync\run_weekly_inspections_to_xlsx.bat
-```
-
-更新该任务时：
-
-1. 先查看 `tools/reporting-sync/logs/weekly-xlsx-sync-YYYYMMDD.log` 和计划任务的 Last Result。
-2. 检查 OneDrive 当前季度工作簿是否存在；不要凭旧季度文件名推断路径。
-3. 使用 `--no-popup` 做验证，避免计划任务在交互式弹窗处挂起。
-4. 验证 Python 语法、配置 JSON、工作簿选择逻辑，再决定是否执行真实同步。
-5. 不直接修改数据库结构或删除历史数据，除非用户明确授权。
-
 ## 交付前检查
 
 - `git diff` 只包含本次任务所需的文件。

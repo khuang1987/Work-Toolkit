@@ -21,16 +21,3 @@
 | Caleb Desktop Pet | `python-scripts/caleb-desktop-pet` | Python / Tkinter 桌面宠物（AI 对话源头） | 解压 `release\Caleb-Desktop-Pet-1.8.1-win-x64.zip` 或 `Start-Preview.cmd` | 源码归档 |
 | Archive | `_archive` | 历史项目、旧分发包和根目录旧文件（已 gitignore） | 不作为当前实现入口 | 归档 |
 
-## 外部关联项目
-
-| 项目 | 位置 | 用途 | 定时任务 |
-|---|---|---|---|
-| WorkshopTracker | `C:\CodeSpeace\WorkshopTracker` | WorkshopTracker 应用及本地报表同步 | `WorkshopTracker Weekly Xlsx Sync`，每天 11:00 |
-
-### WorkshopTracker 报表同步速查
-
-- 入口：`tools/reporting-sync/run_weekly_inspections_to_xlsx.bat`
-- 主脚本：`tools/reporting-sync/src/sync_weekly_inspections_to_xlsx.py`
-- 配置：`tools/reporting-sync/config.local.json`（本地敏感配置，不提交）
-- 日志：`tools/reporting-sync/logs/weekly-xlsx-sync-YYYYMMDD.log`
-- 当前工作簿：OneDrive 下的 FY27 Q2 各区域巡线记录文件；脚本会在配置文件失效时自动选择最新有效 FY/Q 文件。
