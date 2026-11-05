@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { DESCRIPTION_TEMPLATE, MAX_QA_ROUNDS, MAX_TITLE_LENGTH, buildMessages, parseResult, diffText,
-  normalizeDescription, descriptionToBlocks, descriptionToHtml, isValidIsoDate } = require('../fabriq_ai_helpers.js');
+  normalizeDescription, descriptionToBlocks, descriptionToHtml, isValidIsoDate, buildProgressMessages, parseProgress, mergeDescription } = require('../fabriq_ai_helpers.js');
 
 const description = DESCRIPTION_TEMPLATE.map(title => `【${title}】\n已知内容`).join('\n\n');
 const normalized = DESCRIPTION_TEMPLATE.map(title => `${title}\n已知内容`).join('\n');
@@ -45,6 +45,55 @@ test('question history is sent as facts and the fifth answered round forces a re
   const system = buildMessages(context, { qa: rounds, mode: 'ask' })[0].content;
   assert.match(system, /不得再提问/);
   assert.match(system, new RegExp(`已完成 ${MAX_QA_ROUNDS}/${MAX_QA_ROUNDS} 轮问答`));
+});
+
+test('progress prompt carries the spoken update, today, existing tasks with owners and the people hint format', () => {
+  const messages = buildProgressMessages({ team: 't', title: '设备异常', description: '正文', tasks: ['A'],
+    taskDetails: [{ text: '统计批次', assignee: 'Daping He', due: 'Dec 31' }, { text: '验证', assignee: '', due: '' }] },
+  { progressText: '大平周五前完成统计，我来跟进验证', today: '2026-11-04', direction: '更简洁' });
+  assert.match(messages[0].content, /"comment"/);
+  assert.match(messages[0].content, /"taskUpdates"/);
+  assert.match(messages[0].content, /pinyin/);
+  assert.match(messages[0].content, /「发生了什么？」/);
+  assert.match(messages[1].content, /统计批次｜负责人：Daping He｜截止：Dec 31/);
+  assert.match(messages[1].content, /验证｜负责人：无｜截止：无/);
+  assert.match(messages[1].content, /今天：2026-11-04（周三）/);
+  assert.match(messages[1].content, /大平周五前完成统计，我来跟进验证/);
+  assert.match(messages[1].content, /更简洁/);
+});
+
+test('progress result is validated, deduplicated and refuses empty or past-dated output', () => {
+  const today = '2026-11-04';
+  const ok = parseProgress(JSON.stringify({
+    comment: ' 统计已完成 ',
+    descriptionAdditions: [{ heading: DESCRIPTION_TEMPLATE[3], text: '已联系PE\n已调整参数' }],
+    tasks: [{ title: '验证参数', due: '2026-11-06', assignee: { text: '大平', pinyin: 'Daping He' } }, { title: '验证参数', due: null, assignee: null },
+      { title: '复盘', due: null, assignee: 'me' }],
+    taskUpdates: [{ task: '统计批次', due: '2026-11-05', assignee: null }, { task: '无变化', due: null, assignee: null }]
+  }), { today });
+  assert.equal(ok.type, 'progress');
+  assert.equal(ok.comment, '统计已完成');
+  assert.deepEqual(ok.tasks.map(t => t.title), ['验证参数', '复盘']);
+  assert.deepEqual(ok.tasks[0].assignee, { text: '大平', pinyin: 'Daping He' });
+  assert.deepEqual(ok.tasks[1].assignee, { me: true });
+  assert.deepEqual(ok.updates, [{ task: '统计批次', due: '2026-11-05', assignee: null }]);
+  for (const bad of [
+    { comment: null }, { comment: 5 }, { descriptionAdditions: [{ heading: '随便', text: 'x' }] }, { descriptionAdditions: [{ heading: DESCRIPTION_TEMPLATE[0], text: '' }] },
+    { tasks: [{ title: '' }] }, { tasks: [{ title: 'a', due: '2026-11-03' }] }, { tasks: [{ title: 'a', due: '2026-02-30' }] },
+    { tasks: [{ title: 'a', assignee: { name: 'x' } }] }, { tasks: Array.from({ length: 9 }, (_, i) => ({ title: `t${i}` })) }
+  ]) assert.throws(() => parseProgress(JSON.stringify({ comment: 'c', ...bad }), { today }), /无效|早于今天|没有从这段进展/);
+  assert.throws(() => parseProgress(JSON.stringify({ comment: null, tasks: [], taskUpdates: [] }), { today }), /没有从这段进展/);
+  assert.throws(() => parseProgress('not json', { today }), /JSON 无效/);
+});
+
+test('merging progress keeps existing text, fills the right template item and adds a dated prefix', () => {
+  const [q1, q2, q3, q4] = DESCRIPTION_TEMPLATE;
+  const existing = `前言\n【${q1}】\n设备停机\n${q3}\n停机20分钟`;
+  const merged = mergeDescription(existing, [{ heading: q3, text: '新增报废2件' }, { heading: q4, text: '已联系PE\n已调整参数' }], '11/4');
+  assert.equal(merged, ['前言', q1, '设备停机', q3, '停机20分钟', '11/4 新增报废2件', q4, '11/4 已联系PE', '11/4 已调整参数'].join('\n'));
+  const inserted = mergeDescription(`${q1}\nA\n${q4}\nD`, [{ heading: q2, text: '工序：数控铣' }]);
+  assert.deepEqual(descriptionToBlocks(inserted).items.map(i => i.heading), [q1, q2, q4]);
+  assert.equal(mergeDescription('', [{ heading: q1, text: 'x' }]), `${q1}\nx`);
 });
 
 test('valid JSON and fenced JSON parse without inventing task fields', () => {
@@ -188,4 +237,33 @@ test('diff reconstructs every deterministic randomized Chinese edit', () => {
     const after = Array.from({ length: random() % 35 }, () => alphabet[random() % alphabet.length]).join('');
     assertDiff(before, after);
   }
+});
+
+test('translation helpers: english headings stay a list, language detection, validation', () => {
+  const h = require('../fabriq_ai_helpers.js');
+  assert.equal(h.detectLanguage('换刀序号异常 SF'), 'zh');
+  assert.equal(h.detectLanguage('Tool change sequence error'), 'en');
+  const html = h.descriptionToHtml('What happened?\nScrap found\nWhat problem is expected to be solved?\nStable machining');
+  assert.match(html, /^<ul><li><p>What happened\?<\/p><p>Scrap found<\/p><\/li><li>/);
+  const messages = h.buildTranslateMessages({ title: '标题', description: '发生了什么？\n报废', tasks: ['确认夹具'] }, { target: 'en', direction: '更正式' });
+  assert.match(messages[0].content, /What happened\?/);
+  assert.match(messages[1].content, /1\. 确认夹具/);
+  assert.match(messages[1].content, /更正式/);
+  const ok = JSON.stringify({ title: 'Title', description: 'What happened?\nScrap', tasks: ['Check fixture'] });
+  assert.deepEqual(h.parseTranslate(ok, { title: true, description: true, tasks: 1 }).tasks, ['Check fixture']);
+  assert.throws(() => h.parseTranslate(ok, { tasks: 2 }), /数量不一致/);
+  assert.throws(() => h.parseTranslate('{"comment":""}', { comment: true }), /不完整/);
+});
+test('task similarity flags reworded duplicates and ignores unrelated tasks; taskMeta is lenient', () => {
+  const h = require('../fabriq_ai_helpers.js');
+  assert.equal(h.taskSimilarity('确认夹具方案', '确认夹具方案。'), 1);
+  assert.ok(h.taskSimilarity('验证夹具夹紧力', '验证夹具夹紧力是否足够') >= 0.8);
+  assert.ok(h.taskSimilarity('更新客户邮件', '确认钳口夹紧干涉位置') < 0.3);
+  assert.equal(h.findSimilarTask('复核夹具夹紧力', ['确认钳口夹紧，干涉的位置', '复核夹具夹紧力数据'])?.task, '复核夹具夹紧力数据');
+  assert.equal(h.findSimilarTask('完全不同的事情', ['确认钳口夹紧']), null);
+  const raw = JSON.stringify({ status: 'result', tasks: ['A任务', 'B任务'],
+    taskMeta: [{ task: 'A任务', duplicateOf: '已有A', due: '2099-01-01', assignee: 'Kai' }, { task: 'B任务', due: 'bad' }, { nope: 1 }] });
+  const parsed = h.parseResult(raw, { scope: { title: false, description: false, tasks: true, schedule: false } });
+  assert.deepEqual(parsed.taskMeta, [{ task: 'A任务', due: '2099-01-01', assignee: 'Kai', duplicateOf: '已有A' },
+    { task: 'B任务', due: null, assignee: null, duplicateOf: null }]);
 });

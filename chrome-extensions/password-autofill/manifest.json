@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Medtronic Work Assistant",
-  "version": "2.8.9",
+  "version": "2.11.0",
   "description": "集成自动填充、学习助手、任务管理和EHR一键审批的综合工作助手插件",
   "icons": {
     "128": "icon.png"

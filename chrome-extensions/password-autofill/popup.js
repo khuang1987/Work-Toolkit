@@ -97,6 +97,9 @@ document.addEventListener('DOMContentLoaded', function () {
     aiProvider.value = c.provider || 'openai';
     aiModel.value = c.model || '';
     aiKey.value = c.key || '';
+    if (c.baseUrl && c.key) {
+      chrome.permissions.contains({ origins: [new URL(c.baseUrl).origin + '/*'] }, ok => { if (ok) loadModels(); });
+    }
   });
   function readAiConfig() {
     const url = new URL(aiBase.value.trim());
@@ -131,11 +134,12 @@ document.addEventListener('DOMContentLoaded', function () {
     aiModels.replaceChildren();
     aiModelStatus.textContent = '接口地址已修改，请刷新模型列表';
   });
-  refreshModels.addEventListener('click', () => {
+  refreshModels.addEventListener('click', () => loadModels(true));
+  function loadModels(askPermission) {
     let config;
     try { config = readAiConfig(); }
-    catch (error) { showStatus(error.message, 'error'); return; }
-    aiPermission(config, async () => {
+    catch (error) { if (askPermission) showStatus(error.message, 'error'); return; }
+    const run = async () => {
       refreshModels.disabled = true;
       aiModelStatus.textContent = '正在查询该接口实际开放的模型…';
       try {
@@ -156,8 +160,9 @@ document.addEventListener('DOMContentLoaded', function () {
         aiModelStatus.textContent = error.message;
         showStatus(error.message, 'error');
       } finally { refreshModels.disabled = false; }
-    });
-  });
+    };
+    if (askPermission) aiPermission(config, run); else run();
+  }
   document.getElementById('saveAi').addEventListener('click', function () {
     let config;
     try {
