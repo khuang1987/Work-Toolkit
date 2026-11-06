@@ -6,7 +6,7 @@
 
 | 项目 | 位置 | 类型 | 入口 / 运行方式 | 状态 |
 |---|---|---|---|---|
-| Password Autofill | `chrome-extensions/password-autofill` | Chrome 扩展 | 在 Chrome 扩展页加载目录；更新后重新加载；`dev-chrome.bat` 启动独立调试 Chrome（9333），Fabriq AI 配置见 README | 维护中 |
+| Password Autofill | `chrome-extensions/password-autofill` | Chrome 扩展（含 Windchill 规则库与签名文件批量下载、全插件共享 AI 设置） | 在 Chrome 扩展页加载目录；更新后重新加载；`dev-chrome.bat` 启动独立调试 Chrome（9333），AI 配置在弹窗「⚙ 设置」，Windchill 规则见 README | 维护中 |
 | Windchill Work Assistant | `chrome-extensions/windchill-assistant` | Chrome 扩展 | 在 Chrome 扩展页加载目录；更新后重新加载 | 维护中 |
 | Planner Assistant | `chrome-extensions/planner-assistant` | Chrome 扩展 | 在 Chrome 扩展页加载目录 | 维护中 |
 | Data Collector | `python-scripts/data-collector` | Python / Tkinter | `python src/main.py` 或运行打包程序 | 维护中 |

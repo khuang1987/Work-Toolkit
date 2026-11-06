@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Medtronic Work Assistant · 插件后台</title>
+  <style>
+    :root{color-scheme:light;--blue:#2563eb;--line:#e2e8f0;--muted:#64748b}
+    *{box-sizing:border-box}
+    body{margin:0;font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif;color:#1f2937;background:#f1f5f9}
+    header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:#fff;border-bottom:1px solid var(--line)}
+    header h1{margin:0;font-size:18px}
+    header small{color:var(--muted)}
+    nav{display:flex;gap:6px;padding:12px 24px 0}
+    nav button{border:0;border-radius:10px 10px 0 0;padding:8px 16px;background:#e2e8f0;color:#334155;font:inherit;font-weight:600;cursor:pointer}
+    nav button.on{background:#fff;color:var(--blue)}
+    main{margin:0 24px 24px;padding:16px;background:#fff;border-radius:0 12px 12px 12px;border:1px solid var(--line)}
+    .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+    .bar .grow{flex:1}
+    button.btn,select,input[type=search]{border:1px solid #cbd5e1;border-radius:8px;padding:5px 12px;background:#fff;color:#1f2937;font:inherit;cursor:pointer}
+    button.btn:hover{border-color:var(--blue);color:var(--blue)}
+    button.danger:hover{border-color:#dc2626;color:#dc2626}
+    input[type=search]{cursor:text;min-width:220px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+    th{color:var(--muted);font-weight:600;font-size:12px;background:#f8fafc}
+    tr.row{cursor:pointer}
+    tr.row:hover{background:#f8fafc}
+    .ok{color:#15803d}.bad{color:#b91c1c}.muted{color:var(--muted)}
+    .tag{display:inline-block;padding:0 8px;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:12px}
+    .detail{background:#f8fafc}
+    .detail td{padding:12px 16px}
+    .msg{margin:8px 0;border:1px solid var(--line);border-radius:8px;background:#fff}
+    .msg h4{margin:0;padding:4px 10px;font-size:12px;background:#f1f5f9;border-bottom:1px solid var(--line);color:#475569}
+    .msg pre{margin:0;padding:8px 10px;white-space:pre-wrap;word-break:break-word;font:12px/1.55 Consolas,"Microsoft YaHei",monospace;max-height:380px;overflow:auto}
+    .empty{padding:40px;text-align:center;color:var(--muted)}
+    ul.plain{margin:4px 0;padding-left:18px}
+    .note{margin:0 0 12px;color:var(--muted);font-size:13px}
+    .rules-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+    .rule-card{padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#f8fafc}
+    .rule-card h3{margin:0 0 8px;font-size:14px}
+    .rule-card .field{margin-bottom:8px}
+    .rule-card label{display:block;margin-bottom:3px;color:var(--muted);font-size:12px}
+    .rule-card label.inline{display:flex;gap:6px;align-items:flex-start;margin:6px 0;color:#334155}
+    .rule-card textarea,.rule-card input[type=text],.rule-card input[type=number],.rule-card select{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:5px 8px;font:inherit;background:#fff}
+    .checks{display:flex;flex-wrap:wrap;gap:4px 12px}
+    .checks label{display:flex;gap:4px;align-items:center;margin:0;color:#334155}
+    button.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+    button.btn.primary:hover{color:#fff;filter:brightness(1.08)}
+    .suggest{margin-top:12px;padding:12px 14px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff}
+    .suggest ul{margin:4px 0 8px;padding-left:18px}
+    .hdr-tools{display:flex;align-items:center;gap:14px;font-size:13px;color:#334155}
+    .hdr-tools select{max-width:260px;border:1px solid #cbd5e1;border-radius:8px;padding:4px 8px;background:#fff;font:inherit}
+    .hdr-tools label.dev{display:flex;align-items:center;gap:6px}
+    .switch{position:relative;width:38px;height:22px;flex:none;display:inline-block}
+    .switch input{position:absolute;inset:0;z-index:1;margin:0;opacity:0;cursor:pointer}
+    .switch span{position:absolute;inset:0;border-radius:11px;background:#cbd5e1;transition:background .2s}
+    .switch span::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+    .switch input:checked + span{background:#22c55e}
+    .switch input:checked + span::after{transform:translateX(16px)}
+    details.acc{margin-bottom:10px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+    details.acc>summary{display:flex;align-items:center;gap:10px;padding:11px 14px;font-weight:600;cursor:pointer;list-style:none;background:#f8fafc;user-select:none}
+    details.acc>summary::-webkit-details-marker{display:none}
+    details.acc>summary::before{content:"›";display:inline-block;width:14px;color:#64748b;font-size:18px;line-height:1;transition:transform .15s}
+    details.acc[open]>summary::before{transform:rotate(90deg)}
+    details.acc[open]>summary{border-bottom:1px solid var(--line)}
+    details.acc .hint{margin-left:auto;color:var(--muted);font-weight:400;font-size:12px}
+    details.acc>.rules-grid{padding:14px}
+    .savebar{position:sticky;bottom:0;display:flex;gap:8px;align-items:center;padding:10px 0;background:#fff;border-top:1px solid var(--line)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>插件后台 <small id="version"></small></h1>
+    <div class="hdr-tools">
+      <label title="全插件共享的 AI 模型；选中即保存并生效（接口地址和 Key 在隐蔽页面配置）">AI 模型
+        <select id="mdSelect"><option value="">加载中…</option></select>
+      </label>
+      <span id="mdStatus" class="muted"></span>
+      <label class="dev" title="开发者模式：页面控制台可用 __mwaDev.diagnose() 诊断">开发者模式
+        <span class="switch"><input type="checkbox" id="devMode"><span></span></span>
+      </label>
+    </div>
+  </header>
+  <nav>
+    <button data-tab="ai" class="on">AI 对话记录</button>
+    <button data-tab="ops">操作记录</button>
+    <button data-tab="windchill">Windchill 规则库</button>
+    <button data-tab="dllog">下载记录</button>
+    <button data-tab="features" id="featuresNav" hidden>功能管理</button>
+    <button data-tab="aiconfig" id="aiconfigNav" hidden>AI 接口</button>
+  </nav>
+  <main>
+    <section id="tab-ai">
+      <p class="note">每次调用 AI（含自动纠正重试）都会记录提示词、返回内容、耗时和模型，用于后续调整提示词。记录保存在浏览器本地存储里，<b>更新 / 重新加载插件不会丢失</b>（只有删除插件或清空浏览器数据才会没）；最多保留最近 500 条。同时会自动备份成文件，存到浏览器下载目录的 <code>MWA-Logs</code> 文件夹（<code>ai-log.json</code> / <code>ai-log.md</code>），每次覆盖更新。工单内容里的密钥 / 密码字样已在发送前自动隐藏。</p>
+      <div class="bar">
+        <label class="muted"><input type="checkbox" id="autoExport"> 自动保存到文件</label>
+        <span id="exportInfo" class="muted"></span>
+        <button class="btn" id="exportNow">立即保存</button>
+        <button class="btn" id="exportOpen">打开所在文件夹</button>
+      </div>
+      <div class="bar">
+        <input id="aiSearch" type="search" placeholder="搜索工单 / 提示词 / 返回内容">
+        <select id="aiPurpose"><option value="">全部用途</option></select>
+        <select id="aiStatus"><option value="">全部状态</option><option value="ok">成功</option><option value="fail">失败</option><option value="retry">重试（第 2 次起）</option></select>
+        <span class="grow"></span>
+        <span id="aiCount" class="muted"></span>
+        <button class="btn" id="aiRefresh">刷新</button>
+        <button class="btn" id="aiJson">下载 JSON</button>
+        <button class="btn" id="aiMd">下载 Markdown</button>
+        <button class="btn danger" id="aiClear">清空</button>
+      </div>
+      <div id="aiList"></div>
+    </section>
+    <section id="tab-ops" hidden>
+      <p class="note">各插件的关键操作按日期时间倒序汇总：Windchill 下载 / 自动点击、Fabriq 应用 AI 结果、EHR 审批与自动填充、Cornerstone、Workday 等。只记录动作摘要，不含账号密码，记录只存本机。Fabriq 的改动可在 Fabriq 的 AI 栏里撤销，不能自动撤销的原值在展开行里。</p>
+      <div class="bar">
+        <input id="opsSearch" type="search" placeholder="搜索操作 / 内容">
+        <select id="opsApp"><option value="">全部应用</option></select>
+        <select id="opsStatus"><option value="">全部结果</option><option value="ok">成功</option><option value="bad">失败</option></select>
+        <span class="grow"></span>
+        <span id="opsCount" class="muted"></span>
+        <button class="btn" id="opsRefresh">刷新</button>
+        <button class="btn" id="opsJson">下载 JSON</button>
+        <button class="btn danger" id="opsClear">清空</button>
+      </div>
+      <div id="opsList"></div>
+    </section>
+    <section id="tab-aiconfig" hidden>
+      <p class="note">全插件共享的 AI 接口。接口类型、地址和 API Key 只在这里配置；工具栏弹窗里只切换模型。Key 加密保存在本机浏览器配置中，下面可以查看。</p>
+      <div class="rules-grid">
+        <div class="rule-card">
+          <h3>接口</h3>
+          <div class="field"><label>接口类型</label>
+            <select id="cfgProvider"><option value="openai">OpenAI 兼容</option><option value="anthropic">Anthropic / Claude</option></select>
+          </div>
+          <div class="field"><label>接口地址（HTTPS）</label><input id="cfgBase" type="text" placeholder="https://api.gpt.medtronic.com/providers/openai/v1"></div>
+          <div class="field"><label>当前模型（在页面右上角切换）</label><input id="cfgModel" type="text" readonly></div>
+        </div>
+        <div class="rule-card">
+          <h3>API Key</h3>
+          <div class="field"><label>Key（留空保存 = 不修改）</label>
+            <input id="cfgKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-...">
+          </div>
+          <div class="bar" style="margin:0 0 6px">
+            <button class="btn" id="cfgReveal">查看已保存的 Key</button>
+            <button class="btn" id="cfgToggle">显示 / 隐藏</button>
+            <button class="btn" id="cfgCopy">复制</button>
+          </div>
+          <div id="cfgKeyState" class="muted"></div>
+        </div>
+      </div>
+      <div class="bar" style="margin-top:12px"><button class="btn primary" id="cfgSave">保存</button><span id="cfgStatus" class="muted"></span></div>
+    </section>
+    <section id="tab-features" hidden>
+      <p class="note">控制工具栏弹窗里显示哪些应用入口（只影响弹窗菜单，不影响已打开页面里的功能）。默认只显示 Windchill、Fabriq、OEE。</p>
+      <div id="featureList" class="rules-grid"></div>
+      <div class="bar" style="margin-top:12px"><button class="btn" id="featureReset">恢复默认</button><span id="featureStatus" class="muted"></span></div>
+    </section>
+    <section id="tab-windchill" hidden>
+      <p class="note">调整 Windchill 助手里「图纸 / 工程文件 / 质量文件」的匹配规则，以及批量下载时如何认定「签名文件」。点标题展开 / 收起；保存后已打开的 Windchill 页面立即生效。多个值用逗号或换行分隔。</p>
+
+      <details class="acc" open>
+        <summary>文件分类规则 <span class="hint">图纸 · 工程文件 · 质量文件</span></summary>
+        <div class="rules-grid">
+          <div class="rule-card" id="rcDrawing">
+            <h3>图纸</h3>
+            <div class="field"><label>主文件格式（命中其一才算图纸）</label><div class="checks" data-key="drawing.formats"></div></div>
+            <label class="inline"><input type="checkbox" id="drawingExcludeLeading"> 排除编号 / 名称带前缀的文档（如 AB-123）</label>
+            <label class="inline"><input type="checkbox" id="drawingRequireName"> 名称必须包含检索关键词（关闭后名称或编号含关键词即可）</label>
+          </div>
+          <div class="rule-card">
+            <h3>工程文件</h3>
+            <div class="field"><label>编号前缀</label><textarea data-list="engineering.prefixes" rows="2" placeholder="MG, PS"></textarea></div>
+            <div class="field"><label>名称含这些词也算（可选）</label><textarea data-list="engineering.nameIncludes" rows="2"></textarea></div>
+            <div class="field"><label>名称含这些词则排除（可选）</label><textarea data-list="engineering.nameExcludes" rows="2"></textarea></div>
+          </div>
+          <div class="rule-card">
+            <h3>质量文件</h3>
+            <div class="field"><label>编号前缀</label><textarea data-list="quality.prefixes" rows="2" placeholder="PII"></textarea></div>
+            <div class="field"><label>名称含这些词也算（可选）</label><textarea data-list="quality.nameIncludes" rows="2"></textarea></div>
+            <div class="field"><label>名称含这些词则排除（可选）</label><textarea data-list="quality.nameExcludes" rows="2"></textarea></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="acc" open>
+        <summary>签名文件与下载 <span class="hint">如何认定签名文件 · 下载选项</span></summary>
+        <div class="rules-grid">
+          <div class="rule-card">
+            <h3>签名文件</h3>
+            <div class="field"><label>允许的文件格式</label><div class="checks" data-key="signed.formats"></div></div>
+            <div class="field"><label>文件名含这些词视为签名文件（优先）</label><textarea data-list="signed.namePatterns" rows="2"></textarea></div>
+            <div class="field"><label>文件名没有签名标记时</label>
+              <select id="signedFallback">
+                <option value="primary">下载主文件（格式符合即可）</option>
+                <option value="any">主文件或附件中符合格式的第一个</option>
+                <option value="none">不下载，只认文件名命中</option>
+              </select>
+            </div>
+          </div>
+          <div class="rule-card">
+            <h3>下载选项</h3>
+            <div class="field"><label>下载子目录（位于浏览器下载目录内）</label><input id="dlFolder" type="text"></div>
+            <div class="field"><label>并发数（1-4）</label><input id="dlConcurrency" type="number" min="1" max="4"></div>
+            <div class="field"><label>单次最多处理文档数（1-200）</label><input id="dlMaxFiles" type="number" min="1" max="200"></div>
+            <label class="inline"><input type="checkbox" id="dlVerify"> 下载前验证链接（读取开头几百字节，避免保存成登录页）</label>
+            <label class="inline"><input type="checkbox" id="dlAi"> 启用 AI 辅助识别（下载页出现「AI 辅助」按钮；模型在页面右上角选择）</label>
+          </div>
+        </div>
+      </details>
+
+      <details class="acc">
+        <summary>规则测试 <span class="hint">输入编号 / 名称看分到哪一类</span></summary>
+        <div class="rules-grid">
+          <div class="rule-card">
+            <div class="field"><label>文件编号</label><input id="testNumber" type="text" placeholder="如 PII-12345"></div>
+            <div class="field"><label>文件名称</label><input id="testName" type="text" placeholder="如 进料检验规程"></div>
+            <div class="field"><label>主文件格式</label><select id="testFormat"></select></div>
+            <div id="testResult" class="note"></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="acc">
+        <summary>AI 建议 <span class="hint">根据最近一次检索样本给出规则调整建议</span></summary>
+        <div style="padding:0 14px 14px">
+          <button class="btn" id="wcAiSuggest">AI 根据最近检索样本建议规则</button>
+          <div id="wcSuggest"></div>
+        </div>
+      </details>
+
+      <div class="savebar">
+        <button class="btn primary" id="wcSave">保存规则</button>
+        <button class="btn" id="wcReset">恢复默认</button>
+        <span id="wcStatus" class="muted"></span>
+      </div>
+    </section>
+    <section id="tab-dllog" hidden>
+      <p class="note">Windchill 每次下载的结果：含失败原因、HTTP 状态、返回类型、尝试过的地址路径（点一行展开）。最多保留最近 300 条，只存本机。</p>
+      <div class="bar">
+        <select id="dlLogFilter"><option value="">全部</option><option value="failed">只看失败</option><option value="done">只看成功</option></select>
+        <span class="grow"></span>
+        <span id="dlLogCount" class="muted"></span>
+        <button class="btn" id="dlLogRefresh">刷新</button>
+        <button class="btn" id="dlLogJson">下载 JSON</button>
+        <button class="btn danger" id="dlLogClear">清空</button>
+      </div>
+      <div id="dlLogList"></div>
+    </section>
+  </main>
+  <script src="wc_rules.js"></script>
+  <script src="wc_ai.js"></script>
+  <script src="fabriq_ai_guard.js"></script>
+  <script src="fabriq_ai_client.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -15,136 +15,12 @@
   detectLanguage, MAX_TRANSLATE_TITLE, findSimilarTask, diffText, normalizeText, descriptionToHtml, todayIso, MAX_QA_ROUNDS, MAX_TITLE_LENGTH } = globalThis.MwaFabriqAiHelpers;
   const cleanups = new WeakMap();
   let activeBar = null;
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
   const scopeOf = partial => ({ title: false, description: false, tasks: false, schedule: false, ...partial });
   const FULL = scopeOf({ title: true, description: true, tasks: true });
   const PROGRESS = { ...scopeOf({}), progress: true };
   const TRANSLATE = { ...scopeOf({}), translate: true };
 
-  const css = `
-  #${BAR_ID}{display:inline-flex;align-items:center;margin-right:8px;flex:none}
-  #${BAR_ID}[data-mode=label]{margin-left:auto;margin-right:0}
-  #${BAR_ID} .mwa-ai{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;margin:0;padding:0;border:0;border-radius:50%;background:oklch(0.546 0.215 262.88);color:#fff;cursor:pointer;box-shadow:0 1px 3px #1d4ed84d;transition:filter .15s,box-shadow .15s}
-  #${BAR_ID}[data-mode=label] .mwa-ai{width:28px;height:28px}
-  #${BAR_ID} .mwa-ai:hover{filter:brightness(1.12)}
-  #${BAR_ID} .mwa-ai:focus-visible{outline:2px solid #fff;box-shadow:0 0 0 4px oklch(0.546 0.215 262.88)}
-  #${BAR_ID} .mwa-ai.on{filter:brightness(.88);box-shadow:inset 0 0 0 2px #ffffff80}
-  .mwa-ui .mwa-busy{position:relative;height:4px;flex-shrink:0;overflow:hidden;background:#dbeafe}
-  .mwa-ui .mwa-busy i{position:absolute;top:0;bottom:0;left:-40%;width:40%;border-radius:2px;background:linear-gradient(90deg,#2563eb,#7c3aed);animation:mwa-slide 1.1s ease-in-out infinite}
-  @keyframes mwa-slide{0%{left:-40%}100%{left:100%}}
-  @keyframes mwa-pulse{0%,100%{box-shadow:0 0 0 0 oklch(0.546 0.215 262.88/.55)}50%{box-shadow:0 0 0 7px oklch(0.546 0.215 262.88/0)}}
-  #${BAR_ID} .mwa-ai.busy{animation:mwa-pulse 1.2s ease-out infinite}
-  @media(prefers-reduced-motion:reduce){.mwa-ui .mwa-busy i{animation-duration:3s}#${BAR_ID} .mwa-ai.busy{animation:none}}
-  .mwa-ui{font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif;color:#1f2937;color-scheme:light}
-  .mwa-ui *{box-sizing:border-box}
-  .mwa-ui[hidden],.mwa-ui [hidden]{display:none!important}
-  .mwa-ui .mwa-btn{border:1px solid #2563eb;background:#fff;color:#2563eb;border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit}
-  .mwa-ui .mwa-btn.primary{background:#2563eb;color:#fff}
-  .mwa-ui .mwa-btn:disabled{opacity:.5;cursor:default}
-  .mwa-ui input[type=text],.mwa-ui input[type=date],.mwa-ui textarea{width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font:inherit;background:#fff;color:#1f2937}
-  .mwa-ui input::placeholder,.mwa-ui textarea::placeholder{color:#64748b}
-  .mwa-ui textarea{resize:vertical;line-height:1.6}
-  .mwa-ui .mwa-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
-  .mwa-ui .mwa-msg{margin-top:6px;color:#64748b;font-size:13px}
-  .mwa-ui .mwa-msg.err{color:#b91c1c}
-  .mwa-ui h3{margin:0 0 8px;font-size:15px;font-weight:600}
-  .mwa-ui .mwa-chips{display:flex;flex-wrap:wrap;gap:6px}
-  .mwa-ui .mwa-chip{border:1px solid #cbd5e1;border-radius:14px;padding:2px 10px;cursor:pointer;background:#fff;color:#334155;font:inherit;font-size:13px}
-  .mwa-ui .mwa-chip.on{background:#2563eb;border-color:#2563eb;color:#fff}
-  .mwa-ui .mwa-chip:disabled{opacity:.5;cursor:default}
-  .mwa-ui .mwa-other{margin-top:8px;min-height:60px}
-  #${PANEL_ID}{position:absolute;z-index:20;top:72px;right:0;bottom:0;width:400px;display:flex;flex-direction:column;background:#fff;border-left:1px solid #e2e8f0;box-shadow:-6px 0 16px #0f172a14}
-  #${PANEL_ID} header,#${PANEL_ID} footer{padding:10px 16px;background:#f8fafc;flex-shrink:0}
-  #${PANEL_ID} header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0}
-  #${PANEL_ID} footer{border-top:1px solid #e2e8f0;padding:12px 16px 14px}
-  #${PANEL_ID} h2{margin:0;font-size:16px;font-weight:600}
-  #${PANEL_ID} .mwa-close{border:0;background:transparent;font-size:20px;line-height:1;cursor:pointer;color:#475569}
-  #${PANEL_ID} .mwa-body{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;overflow:hidden;padding:12px 14px}
-  #${PANEL_ID} .mwa-status{padding:8px 14px 10px;border-top:1px solid #e2e8f0;max-height:30%;overflow:auto}
-  #${PANEL_ID} .mwa-status:not(:has(.mwa-msg:not(:empty),.mwa-view:not([hidden]))){display:none}
-  #${PANEL_ID} .mwa-status .mwa-msg{margin-top:2px}
-  #${PANEL_ID} .mwa-section{margin-top:14px}
-  #${PANEL_ID} .mwa-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  #${PANEL_ID} .mwa-mod{flex:none;display:flex;flex-direction:column;border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;background:#fff}
-  #${PANEL_ID} .mwa-mod.open{flex:1 1 auto;min-height:0;border-color:#2563eb;box-shadow:0 2px 10px #2563eb26}
-  #${PANEL_ID} .mwa-mod-h{display:flex;width:100%;flex:none;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px;border:0;background:#f1f5f9;color:#334155;font:inherit;cursor:pointer;text-align:left}
-  #${PANEL_ID} .mwa-mod:not(.open) .mwa-mod-h small{display:none}
-  #${PANEL_ID} .mwa-mod:not(.open) .mwa-sign{width:20px;height:20px;font-size:16px}
-  #${PANEL_ID} .mwa-mod-h:hover{background:#e2e8f0}
-  #${PANEL_ID} .mwa-mod-t{display:flex;flex-direction:column;min-width:0}
-  #${PANEL_ID} .mwa-mod-t b{font-weight:600;font-size:14px}
-  #${PANEL_ID} .mwa-mod-h small{font-size:12px;font-weight:400;color:#64748b}
-  #${PANEL_ID} .mwa-sign{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#fff;border:1px solid #94a3b8;color:#334155;font-size:18px;line-height:1;font-weight:600}
-  #${PANEL_ID} .mwa-mod.open .mwa-mod-h{background:#2563eb;color:#fff}
-  #${PANEL_ID} .mwa-mod.open .mwa-mod-h small{color:#dbeafe}
-  #${PANEL_ID} .mwa-mod.open .mwa-sign{background:#fff;border-color:#fff;color:#2563eb}
-  #${PANEL_ID} .mwa-mod-b{flex:1 1 auto;min-height:0;overflow:auto;padding:12px;overscroll-behavior:contain}
-  #${PANEL_ID} .mwa-mod-b>.mwa-section:first-child,#${PANEL_ID} .mwa-mod-b>.mwa-progress{margin-top:0}
-  #${PANEL_ID} .mwa-tr{display:flex;gap:8px}
-  #${PANEL_ID} .mwa-tr .mwa-btn{flex:1}
-  #${PANEL_ID} .mwa-act{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#1f2937;font:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left}
-  #${PANEL_ID} .mwa-act small{font-size:12px;font-weight:400;color:#64748b}
-  #${PANEL_ID} .mwa-act:hover:not(:disabled){border-color:#2563eb;background:#eff6ff}
-  #${PANEL_ID} .mwa-act:disabled{opacity:.5;cursor:default}
-  #${PANEL_ID} .mwa-act.wide{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}
-  #${PANEL_ID} .mwa-big{display:block;width:100%;padding:13px 16px;border:0;border-radius:12px;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;font:inherit;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px #2563eb40}
-  #${PANEL_ID} .mwa-big:hover:not(:disabled){filter:brightness(1.07)}
-  #${PANEL_ID} .mwa-big:disabled{opacity:.55;cursor:default;box-shadow:none}
-  #${PANEL_ID} .mwa-big small{display:block;font-size:12px;font-weight:400;opacity:.85}
-  #${PANEL_ID} .mwa-qa{margin-top:14px;padding:10px;border:1px solid #c7d2fe;border-radius:8px;background:#f8faff}
-  #${PANEL_ID} .mwa-question{margin-top:10px}
-  #${PANEL_ID} .mwa-question textarea{min-height:56px;margin-top:4px}
-  #${PANEL_ID} details{margin-top:8px;font-size:13px;color:#475569}
-  #${PANEL_ID} summary{cursor:pointer;color:#2563eb}
-  #${PANEL_ID} .mwa-view{margin-top:8px}
-  #${COMPARE_ID}{position:fixed;inset:0;margin:auto;width:min(1120px,94vw);max-width:94vw;max-height:90vh;padding:0;border:1px solid #cbd5e1;border-radius:12px;background:#fff;box-shadow:0 20px 70px #0005}
-  #${COMPARE_ID}::backdrop{background:#0f172a88}
-  #${COMPARE_ID} .mwa-layout{display:flex;flex-direction:column;max-height:88vh}
-  #${COMPARE_ID} header,#${COMPARE_ID} footer{padding:14px 20px;background:#f8fafc;flex-shrink:0}
-  #${COMPARE_ID} header{border-bottom:1px solid #e2e8f0}
-  #${COMPARE_ID} footer{border-top:1px solid #e2e8f0}
-  #${COMPARE_ID} h2{margin:0;font-size:18px;font-weight:600}
-  #${COMPARE_ID} .mwa-scroll{overflow:auto;padding:8px 20px 16px;overscroll-behavior:contain}
-  #${COMPARE_ID} .mwa-block{margin-top:12px}
-  #${COMPARE_ID} .mwa-bh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0;margin-bottom:8px}
-  #${COMPARE_ID} .mwa-bh h3{margin:0}
-  #${COMPARE_ID} .mwa-bh .mwa-btn{padding:3px 12px;font-size:13px}
-  #${COMPARE_ID} .mwa-cap{margin-bottom:4px;font-size:12px;color:#64748b}
-  #${COMPARE_ID} .mwa-hrow{display:flex;align-items:center;justify-content:space-between}
-  #${COMPARE_ID} .mwa-close{border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#475569;padding:0 4px}
-  #${COMPARE_ID} .mwa-end{justify-content:flex-end}
-  #${COMPARE_ID} .mwa-regen{margin-bottom:6px}
-  #${COMPARE_ID} .mwa-regen .mwa-chips{margin-top:2px}
-  #${COMPARE_ID} .mwa-edit{min-height:44px;padding:12px;border:1px solid #93c5fd;border-radius:8px;background:#fff;white-space:pre-wrap;overflow-wrap:anywhere;outline:none;cursor:text}
-  #${COMPARE_ID} .mwa-edit:focus{box-shadow:0 0 0 2px #2563eb55;border-color:#2563eb}
-  #${COMPARE_ID} .mwa-edit ins{color:#166534}
-  #${COMPARE_ID} .mwa-columns{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  #${COMPARE_ID} .mwa-column{min-width:0}
-  #${COMPARE_ID} .mwa-column.wide{grid-column:1/-1}
-  #${COMPARE_ID} .mwa-diff{white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid #e2e8f0;border-radius:8px;padding:12px;min-height:44px}
-  #${COMPARE_ID} .mwa-diff.desc{min-height:140px}
-  #${COMPARE_ID} .mwa-diff span{color:inherit}
-  #${COMPARE_ID} del{background:#fee2e2;color:#991b1b;text-decoration:line-through}
-  #${COMPARE_ID} ins{background:#dcfce7;color:#166534;text-decoration:none}
-  #${COMPARE_ID} .mwa-task{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0;padding:6px;background:#f0fdf4;border-radius:6px}
-  #${COMPARE_ID} .mwa-task>input[type=text]{flex:1 1 160px;min-width:140px;width:auto}
-  #${COMPARE_ID} .mwa-dup{flex:1 0 100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:4px 6px;border-radius:6px;background:#fef9c3;color:#854d0e;font-size:13px}
-  #${COMPARE_ID} .mwa-dup select{max-width:none;flex:1 1 260px;min-width:0}
-  #${COMPARE_ID} .mwa-task[data-applied=true]{opacity:.6}
-  #${COMPARE_ID} .mwa-task.sched .mwa-name{flex:1;min-width:0;overflow-wrap:anywhere}
-  #${COMPARE_ID} .mwa-task.sched input[type=date]{width:150px;flex:none}
-  #${COMPARE_ID} .mwa-bact{display:inline-flex;gap:8px}
-  #${COMPARE_ID} .mwa-task select{flex:none;max-width:170px;padding:4px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:13px;background:#fff}
-  #${COMPARE_ID} .mwa-task input[type=date]{width:140px;flex:none}
-  #${COMPARE_ID} .mwa-task .mwa-now{flex:none;font-size:12px;color:#64748b}
-  #${COMPARE_ID} .mwa-task.upd .mwa-name{flex:1;min-width:0;overflow-wrap:anywhere}
-  #${PANEL_ID} .mwa-progress textarea{width:100%;box-sizing:border-box;min-height:84px;padding:8px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;font-size:14px;resize:vertical}
-  #${PANEL_ID} .mwa-progress .mwa-btn{margin-top:8px;width:100%}
-  #${COMPARE_ID} .mwa-edit.multi{min-height:140px}
-  #${COMPARE_ID} ul{padding-left:20px}
-  #${COMPARE_ID} details{margin-top:10px}
-  #${COMPARE_ID} summary{cursor:pointer;color:#2563eb}
-  @media(max-width:700px){#${COMPARE_ID} .mwa-columns{grid-template-columns:1fr}}`;
+  const css = MwaFabriqStyle.build({ BAR_ID, PANEL_ID, COMPARE_ID });
 
   const DIRECTIONS = ['更简洁', '更详细', '突出风险与影响', '任务拆得更细', '任务更少更聚焦', '补充验收标准', '一周内完成', '两周内完成'];
   const DIRECTION_SETS = {
@@ -154,295 +30,14 @@
     schedule: ['一周内完成', '两周内完成', '高风险优先', '每项间隔更短']
   };
 
-  const getModal = () => document.querySelector('.modal.is-active');
-  const getTitleEl = modal => modal.querySelector('[data-qa="title"] .ProseMirror, .ticket-title .ProseMirror, .ProseMirror[data-placeholder="Add a title"]');
-  const getDescEl = modal => modal.querySelector('.rich-text-editor-prosemirror');
-  const getTaskEls = modal => [...modal.querySelectorAll('[data-qa=task-description] .ProseMirror')];
-  const getAddTaskBtn = modal => modal.querySelector('[data-qa=add-a-new-task-placeholder]');
-  const getDescLabel = modal => [...modal.querySelectorAll('[data-qa=field-label]')].find(e => /Description/i.test(e.textContent));
+  const { getModal, getTitleEl, getDescEl, getTaskEls, getAddTaskBtn, getDescLabel, assigneeOf, taskInfos, readContext, ensureTasksLoaded, sidebarCollapsed, setSidebar, focusEditor, waitFor, clearEditor, writeDescription, writeTitle, rewriteTask, addTasks, setTaskDate, searchPeople, findPeople, setTaskAssignee, postComment, sleep } = globalThis.MwaFabriqPage;
+  const { requestAi } = globalThis.MwaFabriqAiClient;
+  const { generateGuarded } = globalThis.MwaFabriqAiGuard;
+  const Undo = globalThis.MwaFabriqUndo;
+  // 统一的 AI 调用：输入清洗（隐藏凭据）、输出容错解析、不合规自动纠正重试，并带上用途记录到对话日志。
+  const askAi = (messages, parse, purpose, ticket) => generateGuarded({ messages, parse,
+    call: (msgs, info) => requestAi('fabriqAiGenerate', { messages: msgs, meta: { purpose, ticket, attempt: info.attempt, masked: info.masked } }) });
 
-  // 任务及其日期、负责人：[data-qa=date] 带 empty 类表示尚未排期；[data-qa=user] 含 person_outline 表示未分配。
-  function assigneeOf(row) {
-    const trigger = row?.querySelector('[data-qa=user]');
-    const text = trigger ? trigger.innerText.trim() : '';
-    if (!text || /person_outline/.test(text)) return '';
-    return text.split('\n').map(part => part.trim()).filter(Boolean).pop() || '';
-  }
-
-  function taskInfos(modal) {
-    return getTaskEls(modal).map(editor => {
-      const row = editor.closest('.task-row');
-      const date = row?.querySelector('[data-qa=date]') || null;
-      const hasDate = !!date && !date.classList.contains('empty');
-      return { editor, row, text: editor.innerText.trim(), hasDate, dateText: hasDate ? date.innerText.trim() : '', assignee: assigneeOf(row) };
-    }).filter(task => task.text);
-  }
-
-  function readContext(modal) {
-    const title = (getTitleEl(modal)?.innerText || '').trim();
-    const description = (getDescEl(modal)?.innerText || '').trim();
-    const infos = taskInfos(modal);
-    const tasks = infos.map(task => task.text);
-    const undatedTasks = infos.filter(task => !task.hasDate).map(task => task.text);
-    const team = (document.querySelector('[data-qa=team-name],header h1')?.innerText || document.title.split('|')[0]).replace(/^●\s*/, '').trim();
-    return { title, description, tasks, undatedTasks, team,
-      taskDetails: infos.map(task => ({ text: task.text, assignee: task.assignee, due: task.dateText })) };
-  }
-
-  // Fabriq 的任务行是懒加载的，未滚动到时只有骨架；读取前先让它们渲染，否则会漏掉已有任务。
-  async function ensureTasksLoaded(modal) {
-    const pending = () => [...modal.querySelectorAll('.task-row.loading')];
-    if (!pending().length) return;
-    const scroller = modal.querySelector('[data-qa=ticket-modal-left-panel]');
-    const saved = scroller ? scroller.scrollTop : null;
-    for (let i = 0; i < 24 && pending().length; i++) {
-      pending()[0].scrollIntoView({ block: 'center' });
-      await sleep(250);
-    }
-    if (scroller && saved !== null) scroller.scrollTop = saved;
-    if (pending().length) throw new Error('任务列表尚未加载完成，请稍后重试');
-  }
-
-  // Fabriq 右侧栏：收起时约 65px 宽，用其自带的按钮展开 / 收起。
-  const sidebarCollapsed = modal => {
-    const side = modal.querySelector('.right-panel');
-    return !side || side.getBoundingClientRect().width < 200;
-  };
-  async function setSidebar(modal, open) {
-    if (open === !sidebarCollapsed(modal)) return false;
-    const button = modal.querySelector(open ? '[data-qa=ticket-modal-show-history]' : '[data-qa=hide-history-feed-button]');
-    if (!button) return false;
-    button.click();
-    await sleep(500);
-    return true;
-  }
-
-  function requestAi(action, data = {}) {
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.runtime.sendMessage({ action, ...data }, res => {
-          if (chrome.runtime.lastError) return reject(new Error('扩展已重载，请刷新页面'));
-          if (!res || !res.ok) return reject(new Error((res && res.error) || '请求失败'));
-          resolve(res.data);
-        });
-      } catch (e) {
-        reject(new Error('扩展已重载，请刷新页面'));
-      }
-    });
-  }
-
-  function focusEditor(node, message) {
-    node.focus();
-    if (document.activeElement !== node && !node.contains(document.activeElement)) throw new Error(message);
-  }
-
-  async function waitFor(fn, timeout = 3000, step = 100) {
-    const end = Date.now() + timeout;
-    for (;;) {
-      const value = fn();
-      if (value) return value;
-      if (Date.now() > end) return null;
-      await sleep(step);
-    }
-  }
-
-  // Tiptap 在 selectAll 后要过一个事件周期才同步选区；不等待就删除会残留旧内容，之后粘贴会与旧内容混在一起。
-  async function clearEditor(el) {
-    for (let i = 0; i < 6; i++) {
-      document.execCommand('selectAll', false, null);
-      await sleep(120);
-      document.execCommand('delete', false, null);
-      await sleep(150);
-      if (!el.innerText.trim()) return;
-    }
-    throw new Error('无法清空原有内容，未写入；请手动清空后重试');
-  }
-
-  async function writeDescription(modal, text) {
-    const el = getDescEl(modal);
-    if (!el) throw new Error('未找到描述输入框');
-    focusEditor(el, '无法聚焦描述编辑器，未写入；请检查页面编辑权限');
-    await clearEditor(el);
-    // 以粘贴 HTML 的方式写入，模板问题成为列表项（黑点），回答为列表内的普通段落。
-    const html = descriptionToHtml(text);
-    const data = new DataTransfer();
-    data.setData('text/html', html);
-    data.setData('text/plain', text);
-    const paste = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
-    const emptyHtml = el.innerHTML;
-    el.dispatchEvent(paste);
-    await sleep(200);
-    if (!paste.defaultPrevented && el.innerHTML === emptyHtml) document.execCommand('insertHTML', false, html);
-    await sleep(300);
-    el.blur();
-    await sleep(500);
-  }
-
-  async function writeTitle(modal, text) {
-    const el = getTitleEl(modal);
-    if (!el) throw new Error('未找到标题输入框');
-    focusEditor(el, '无法聚焦标题编辑器，未写入；请检查页面编辑权限');
-    await clearEditor(el);
-    document.execCommand('insertText', false, text);
-    await sleep(300);
-    el.blur();
-    await sleep(600);
-  }
-
-  // 就地改写已有任务的文字（翻译）：清空后插入，失去焦点即保存。
-  async function rewriteTask(modal, editor, text) {
-    if (!modal.isConnected || getModal() !== modal) throw new Error('工单已关闭或切换，未继续改写任务');
-    focusEditor(editor, '无法聚焦任务输入框，未改写');
-    await clearEditor(editor);
-    if (!document.execCommand('insertText', false, text)) throw new Error('任务输入失败，请检查页面编辑权限');
-    await sleep(300);
-    editor.blur();
-    await sleep(1200);
-  }
-
-  // 点击 Add 会新建一个空白任务行；在该行输入后失去焦点即保存。不再按 Enter，否则 Fabriq 会额外保存一个空白任务。
-  async function addTasks(modal, tasks) {
-    const addBtn = getAddTaskBtn(modal);
-    if (!addBtn) throw new Error('未找到「Add a task」，请先保存工单');
-    const firstEmpty = () => getTaskEls(modal).find(editor => !editor.innerText.trim());
-    for (const title of tasks) {
-      let el = firstEmpty();
-      if (!el) {
-        addBtn.click();
-        for (let i = 0; i < 100 && !el; i++) { await sleep(100); el = firstEmpty(); }
-      }
-      if (!el) throw new Error('空白任务输入框未出现，已停止以免改写已有任务');
-      if (!modal.isConnected || getModal() !== modal) throw new Error('工单已关闭或切换，未继续添加任务');
-      focusEditor(el, '无法聚焦任务输入框，未添加；请检查页面编辑权限');
-      if (!document.execCommand('insertText', false, title)) throw new Error('任务输入失败，请检查页面编辑权限');
-      await sleep(300);
-      el.blur();
-      await sleep(1200);
-    }
-  }
-
-  // 通过 Fabriq 自带的日期选择器设置任务日期（按钮 aria-label 形如 "Wednesday, November 4, 2026"）。
-  // overwrite=true 时允许改写已有日期（任务调整）；否则已有日期不覆盖。
-  async function setTaskDate(row, iso, { overwrite = false } = {}) {
-    const holder = row?.querySelector('[data-qa=date]');
-    if (!holder) throw new Error('未找到任务的日期控件');
-    if (!overwrite && !holder.classList.contains('empty')) throw new Error('任务已有日期，未覆盖');
-    holder.scrollIntoView({ block: 'center' });
-    holder.click();
-    const picker = await waitFor(() => document.querySelector('.date-picker'), 3000);
-    if (!picker) throw new Error('日期选择器未打开');
-    const [year, month, day] = iso.split('-').map(Number);
-    const label = new Date(year, month - 1, day).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    let clicked = false;
-    for (let i = 0; i < 24 && !clicked; i++) {
-      const button = [...picker.querySelectorAll('button[aria-label]')]
-        .find(b => b.getAttribute('aria-label') === label && !b.classList.contains('f-datepicker__outside-displayed-month'));
-      if (button) { button.click(); clicked = true; break; }
-      const shown = new Date(`${picker.querySelector('[aria-label=datetime-picker-navigation]')?.textContent.trim()} 1`);
-      if (Number.isNaN(+shown)) break;
-      const direction = year * 12 + month - 1 > shown.getFullYear() * 12 + shown.getMonth() ? 'next' : 'previous';
-      const nav = picker.querySelector(`[aria-label=datetime-picker-${direction}]`);
-      if (!nav) break;
-      nav.click();
-      await sleep(150);
-    }
-    if (!clicked) throw new Error(`日期选择器中未找到 ${iso}`);
-    const written = overwrite
-      ? await waitFor(() => !document.querySelector('.date-picker') && !holder.classList.contains('empty'), 3000)
-      : await waitFor(() => !holder.classList.contains('empty'), 3000);
-    if (!written) throw new Error(`任务日期未写入（${iso}），请检查 Fabriq 页面`);
-    await sleep(400);
-  }
-
-  // ───── 人员：Fabriq 的人员选择框按姓名（拼音）检索 ─────
-  const optionName = option => option.innerText.trim().split('\n').map(part => part.trim()).filter(Boolean).pop() || '';
-  const peopleOptions = () => [...document.querySelectorAll('[data-qa=autocomplete-option]')].map(optionName);
-
-  async function typeInPeopleSearch(query) {
-    const input = await waitFor(() => document.querySelector('[data-qa=autocomplete-search]'), 2500);
-    if (!input) throw new Error('人员选择框未打开');
-    input.focus();
-    document.execCommand('selectAll', false, null);
-    document.execCommand('delete', false, null);
-    if (query) document.execCommand('insertText', false, query);
-    await sleep(900);
-    return input;
-  }
-
-  // 借用工单顶部的负责人选择框做检索（只检索，不选择），返回匹配到的姓名。
-  async function searchPeople(modal, query) {
-    const trigger = modal.querySelector('[data-qa=ticket-user]');
-    if (!trigger || !query.trim()) return [];
-    trigger.click();
-    try {
-      await typeInPeopleSearch(query.trim());
-      return [...new Set(peopleOptions())];
-    } finally {
-      const input = document.querySelector('[data-qa=autocomplete-search]');
-      if (input) { input.focus(); document.execCommand('selectAll', false, null); document.execCommand('delete', false, null); }
-      trigger.click();
-      await sleep(400);
-    }
-  }
-
-  // 依次用完整拼音和各个词检索，直到有结果。
-  async function findPeople(modal, pinyin) {
-    const full = pinyin.trim();
-    const tokens = [...new Set(full.split(/\s+/).filter(Boolean))].sort((a, b) => b.length - a.length);
-    for (const query of [full, ...tokens]) {
-      const found = await searchPeople(modal, query);
-      if (found.length) return found;
-    }
-    return [];
-  }
-
-  // 给任务行分配负责人：who 为姓名，或 'me'（Assign to myself）。
-  async function setTaskAssignee(row, who) {
-    const trigger = row?.querySelector('[data-qa=user]');
-    if (!trigger) throw new Error('未找到任务的负责人控件');
-    trigger.scrollIntoView({ block: 'center' });
-    trigger.click();
-    if (who === 'me') {
-      const mine = await waitFor(() => [...document.querySelectorAll('.f-dropdown-content *')].find(e => e.children.length === 0 && /Assign to myself/i.test(e.textContent)), 2500);
-      if (!mine) throw new Error('未找到「Assign to myself」');
-      (mine.closest('button,[role=button],[role=menuitem],a,div') || mine).click();
-    } else {
-      await typeInPeopleSearch(who);
-      const option = [...document.querySelectorAll('[data-qa=autocomplete-option]')].find(o => normalizeText(optionName(o)).toLowerCase() === normalizeText(who).toLowerCase());
-      if (!option) {
-        trigger.click();
-        throw new Error(`人员检索中未找到「${who}」`);
-      }
-      option.click();
-    }
-    const changed = await waitFor(() => !document.querySelector('[data-qa=autocomplete-search]') && assigneeOf(row), 3000);
-    if (!changed) throw new Error(`负责人未设置成功（${who === 'me' ? '我' : who}），请检查 Fabriq 页面`);
-    await sleep(400);
-  }
-
-  // 在评论框中写入并点击发送（评论框里已有未发送内容时不覆盖）。
-  async function postComment(modal, text) {
-    const editor = modal.querySelector('.comment-input .ProseMirror');
-    if (!editor) throw new Error('未找到评论输入框');
-    if (editor.innerText.trim()) throw new Error('评论框里已有未发送的内容，请先处理后再发送');
-    focusEditor(editor, '无法聚焦评论框，未发送');
-    const html = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`).join('');
-    const data = new DataTransfer();
-    data.setData('text/html', html);
-    data.setData('text/plain', text);
-    const paste = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
-    const before = editor.innerHTML;
-    editor.dispatchEvent(paste);
-    await sleep(250);
-    if (!paste.defaultPrevented && editor.innerHTML === before) document.execCommand('insertHTML', false, html);
-    await sleep(300);
-    if (!editor.innerText.trim()) throw new Error('评论内容未能写入评论框');
-    const send = [...(editor.closest('.input-row') || modal).querySelectorAll('button[data-qa=icon-button]')].pop();
-    if (!send) throw new Error('未找到评论发送按钮，内容已留在评论框中，请手动发送');
-    send.click();
-    if (!await waitFor(() => !editor.innerText.trim(), 4000)) throw new Error('评论可能未发送成功，内容仍在评论框中，请手动确认');
-    await sleep(600);
-  }
 
   function el(tag, props, ...children) {
     const node = document.createElement(tag);
@@ -604,7 +199,20 @@
     const progressBox = el('div', { className: 'mwa-section mwa-progress' },
       el('h3', { textContent: '进展更新' }), progressInput, progressBtn);
     const singleBtns = [titleBtn, descBtn, tasksBtn, scheduleBtn];
-    const viewBtn = el('button', { className: 'mwa-btn mwa-view', type: 'button', textContent: '查看上次对比', hidden: true });
+    const viewBtn = el('button', { className: 'mwa-menu-item mwa-view', type: 'button', textContent: '查看上次对比', hidden: true });
+    const undoBtn = el('button', { className: 'mwa-menu-item', type: 'button', textContent: '撤销上次应用', hidden: true });
+    const diagBtn = el('button', { className: 'mwa-menu-item', type: 'button', textContent: '页面自检', title: '检查 Fabriq 页面结构是否仍与插件匹配' });
+    const logBtn = el('button', { className: 'mwa-menu-item', type: 'button', textContent: '操作记录 / AI 对话记录', title: '在插件后台查看和下载' });
+    // 顶部「⋯」工具菜单：查看上次对比、撤销、自检、记录；不可用的项灰显。
+    const menuBtn = el('button', { className: 'mwa-tool', type: 'button', textContent: '⋯', title: '工具：上次对比 / 撤销 / 自检 / 记录' });
+    menuBtn.setAttribute('aria-haspopup', 'menu');
+    menuBtn.setAttribute('aria-expanded', 'false');
+    const menu = el('div', { className: 'mwa-menu', hidden: true }, viewBtn, undoBtn, diagBtn, logBtn);
+    menu.setAttribute('role', 'menu');
+    const setMenu = open => { menu.hidden = !open; menuBtn.setAttribute('aria-expanded', String(open)); };
+    menuBtn.onclick = event => { event.stopPropagation(); setMenu(menu.hidden); };
+    menu.addEventListener('click', () => setMenu(false));
+    logBtn.onclick = () => { try { chrome.runtime.sendMessage({ action: 'openOptions' }); } catch { /* 扩展已重载 */ } };
     const fullBtn = el('button', { className: 'mwa-big', type: 'button' }, '✨ 完整优化', el('small', { textContent: '标题 + 描述 + 任务，一次生成并对比' }));
     // 生成中的不确定进度条（面板和对比弹窗各一条），避免界面变灰时让人误以为卡死。
     const makeBusy = () => {
@@ -637,8 +245,9 @@
       modules.set(key, { head, body, sign, section });
       return section;
     };
+    panel.addEventListener('click', event => { if (!menu.contains(event.target) && event.target !== menuBtn) setMenu(false); });
     panel.append(
-      el('header', {}, el('h2', { textContent: '✨ AI 助手' }), closeBtn),
+      el('header', {}, el('h2', { textContent: '✨ AI 助手' }), el('span', { className: 'mwa-hbtns' }, menuBtn, closeBtn), menu),
       panelBusy,
       el('div', { className: 'mwa-body' },
         makeModule('progress', '进展更新', '输入进展 → 更新任务 / 评论', progressBox),
@@ -653,7 +262,7 @@
           el('div', { className: 'mwa-tr' }, toEnBtn, toZhBtn),
           el('div', { className: 'mwa-msg', textContent: '已发送的评论无法翻译；写评论时可在预览里一键中英切换。' }))),
       el('footer', { className: 'mwa-status' },
-        msg, viewBtn)
+        msg)
     );
     openModule('progress');
 
@@ -1049,14 +658,13 @@
           ...(has('schedule') ? { schedule: rowsOf(scheduleList).map(row => ({ task: row.dataset.task, due: row.querySelector('input[type=date]').value })) } : {})
         } : null;
         const titleElement = getTitleEl(owner);
-        const raw = await requestAi('fabriqAiGenerate', {
-          messages: buildMessages(ctx, { direction, scope, qa: state.qa, mode: effectiveMode, previous })
-        });
+        const purpose = effectiveMode === 'ask' ? 'qa' : (Object.keys(scope).filter(key => scope[key]).join('+') || 'optimize');
+        const { result: parsed } = await askAi(buildMessages(ctx, { direction, scope, qa: state.qa, mode: effectiveMode, previous }),
+          raw => parseResult(raw, { allowQuestions, scope }), purpose, ctx.title);
         if (!toggle.isConnected || getModal() !== owner || getTitleEl(owner) !== titleElement ||
             readContext(owner).title !== ctx.title) {
           throw new Error('工单已关闭或切换，生成结果未应用；请在目标工单重新生成');
         }
-        const parsed = parseResult(raw, { allowQuestions, scope });
         if (parsed.type === 'questions') {
           showQuestions(parsed.questions, scope);
           return;
@@ -1103,11 +711,10 @@
           tasks: rowsOf(taskList).map(row => row.querySelector('input[type=text]').value.trim()).filter(Boolean)
         } : null;
         const titleElement = getTitleEl(owner);
-        const raw = await requestAi('fabriqAiGenerate', { messages: buildProgressMessages(ctx, { progressText: text, direction, previous }) });
+        const { result: parsed } = await askAi(buildProgressMessages(ctx, { progressText: text, direction, previous }), parseProgress, 'progress', ctx.title);
         if (!toggle.isConnected || getModal() !== owner || getTitleEl(owner) !== titleElement || readContext(owner).title !== ctx.title) {
           throw new Error('工单已关闭或切换，生成结果未应用；请在目标工单重新生成');
         }
-        const parsed = parseProgress(raw);
         const known = new Map(ctx.taskDetails.map(task => [normalizeText(task.text), task]));
         const updates = parsed.updates.filter(item => known.has(normalizeText(item.task)))
           .map(item => ({ ...item, task: known.get(normalizeText(item.task)).text,
@@ -1149,11 +756,11 @@
         state.translateTarget = want;
         const titleElement = getTitleEl(owner);
         const items = { title: ctx.title, description: ctx.description, tasks: ctx.tasks };
-        const raw = await requestAi('fabriqAiGenerate', { messages: buildTranslateMessages(items, { target: want, direction }) });
+        const { result: parsed } = await askAi(buildTranslateMessages(items, { target: want, direction }),
+          raw => parseTranslate(raw, { title: !!ctx.title, description: !!ctx.description, tasks: ctx.tasks.length }), `translate:${want}`, ctx.title);
         if (!toggle.isConnected || getModal() !== owner || getTitleEl(owner) !== titleElement || readContext(owner).title !== ctx.title) {
           throw new Error('工单已关闭或切换，译文未应用；请在目标工单重新翻译');
         }
-        const parsed = parseTranslate(raw, { title: !!ctx.title, description: !!ctx.description, tasks: ctx.tasks.length });
         showResult({ translate: true, title: parsed.title ?? null, description: parsed.description ?? null, tasks: null,
           translations: parsed.tasks ? parsed.tasks.map((text, index) => ({ task: ctx.tasks[index], text })) : null }, ctx, titleElement, TRANSLATE);
         setMsg(`已生成${want === 'en' ? '英文' : '中文'}译文预览，尚未修改工单。`);
@@ -1175,8 +782,9 @@
       try {
         const source = commentArea.value.trim();
         const target = detectLanguage(source) === 'zh' ? 'en' : 'zh';
-        const raw = await requestAi('fabriqAiGenerate', { messages: buildTranslateMessages({ comment: source }, { target }) });
-        commentArea.value = parseTranslate(raw, { comment: true }).comment;
+        const { result } = await askAi(buildTranslateMessages({ comment: source }, { target }), raw => parseTranslate(raw, { comment: true }),
+          `comment-translate:${target}`, state.before?.title || '');
+        commentArea.value = result.comment;
         setMsg(`评论已译为${target === 'en' ? '英文' : '中文'}，可继续编辑后发送。`);
       } catch (e) {
         setMsg(e.message || String(e), true);
@@ -1211,18 +819,99 @@
       generate(state.qaScope, 'generate', '');
     };
 
+    // 记录本次应用（含撤销所需快照）；只有改了标题 / 描述 / 任务文字才可自动撤销。
+    async function saveOperation(snap, op) {
+      if (!snap || !op.applied.length) return;
+      await Undo.record({ ticket: snap.title, afterTitle: op.afterTitle || snap.title, url: location.href, applied: op.applied,
+        manual: op.manual, rewrites: op.rewrites, touchedTitle: op.touchedTitle, touchedDesc: op.touchedDesc,
+        reversible: op.touchedTitle || op.touchedDesc || op.rewrites.length > 0, snapshot: snap });
+      refreshUndo();
+    }
+
+    async function refreshUndo() {
+      if (!toggle.isConnected || getModal() !== owner) return;
+      undoBtn.hidden = !(await Undo.latestFor([readContext(owner).title]));
+    }
+
+    async function undoLast() {
+      if (state.busy) return;
+      const entry = await Undo.latestFor([readContext(owner).title]);
+      if (!entry) { undoBtn.hidden = true; setMsg('没有可撤销的记录。'); return; }
+      const restores = [entry.touchedTitle && '标题', entry.touchedDesc && '描述', entry.rewrites.length && `${entry.rewrites.length} 个任务文字`].filter(Boolean).join('、');
+      const manual = entry.manual.length ? `\n\n以下内容无法自动撤销，需要你手动处理：\n- ${entry.manual.join('\n- ')}` : '';
+      if (!confirm(`将把 ${restores} 恢复到应用之前的内容。${manual}\n\n继续撤销？`)) return;
+      state.busy = true;
+      updateActions();
+      try {
+        await ensureTasksLoaded(owner);
+        const now = readContext(owner).title;
+        if (now !== entry.ticket && now !== entry.afterTitle) throw new Error('当前工单与记录不一致，未撤销');
+        // 先恢复任务和描述，标题最后（标题用于识别当前工单）。
+        for (const item of [...entry.rewrites].reverse()) {
+          const info = taskInfos(owner).find(task => normalizeText(task.text) === normalizeText(item.to));
+          if (!info) throw new Error(`找不到任务「${item.to}」，未能恢复（可能已被修改）`);
+          setMsg(`正在恢复任务：${item.from}`);
+          await rewriteTask(owner, info.editor, item.from);
+        }
+        if (entry.touchedDesc) {
+          setMsg('正在恢复描述…');
+          await writeDescription(owner, entry.snapshot.descriptionText, entry.snapshot.descriptionHtml);
+        }
+        if (entry.touchedTitle) {
+          setMsg('正在恢复标题…');
+          await writeTitle(owner, entry.snapshot.title);
+        }
+        await Undo.markUndone(entry.id);
+        state.result = null;
+        state.expected = readContext(owner);
+        state.titleElement = getTitleEl(owner);
+        viewBtn.hidden = true;
+        setMsg(entry.manual.length ? `已撤销 ${restores}。仍需手动处理：${entry.manual.join('；')}` : `已撤销 ${restores}。`);
+      } catch (e) {
+        setMsg(e.message || String(e), true);
+      } finally {
+        state.busy = false;
+        updateActions();
+        refreshUndo();
+      }
+    }
+    undoBtn.onclick = undoLast;
+    refreshUndo();
+
+    // 自检：对照选择器表检查当前页面，缺失时指出会影响哪项功能。
+    let diagTimer = null;
+    diagBtn.onclick = () => {
+      const report = globalThis.MwaFabriqPage.diagnose(getModal());
+      const lines = [report.failedRequired.length ? `⚠ 缺少关键元素（${report.failedRequired.length}）：` : '✓ 关键元素齐全',
+        ...report.failedRequired.map(item => `  ✗ ${item.feature}：${item.selector}`),
+        ...(report.failedOptional.length ? [`可选元素未出现（${report.failedOptional.length}，可能只是当前工单没有）：`,
+          ...report.failedOptional.map(item => `  - ${item.feature}`)] : [])];
+      const text = lines.join('\n');
+      setMsg(text, report.failedRequired.length > 0);
+      // 10 秒后自动收起；期间若已被其他提示替换则不清除。
+      clearTimeout(diagTimer);
+      diagTimer = setTimeout(() => { if (msg.textContent === text) setMsg(''); }, 10000);
+      chrome.storage.local.set({ mwaFabriqDiag: report });
+    };
+
     async function run(parts) {
       if (state.busy || !state.result || !dialog.open) return;
       state.busy = true;
       let succeeded = false;
+      let snap = null;
+      // 本次应用的操作记录：applied = 做了什么；manual = 无法自动撤销、需要手动还原的项；rewrites = 可撤销的任务改写。
+      const op = { applied: [], manual: [], rewrites: [], touchedTitle: false, touchedDesc: false };
       updateActions();
       try {
         await ensureTasksLoaded(owner);
         assertTarget(true);
+        snap = Undo.snapshot(globalThis.MwaFabriqPage, owner);
         // A modal dialog makes the site editor inert; dismiss it only after explicit confirmation.
         dialog.close();
         if (parts.desc && descApplicable()) {
           setMsg('正在应用已确认的描述…');
+          op.touchedDesc = true;
+          op.applied.push('描述');
           await writeDescription(owner, descArea.value.trim());
           assertTarget();
           const current = readContext(owner);
@@ -1240,6 +929,8 @@
           const title = merge ? row.dataset.dup : row.querySelector('input[type=text]').value.trim();
           if (!merge && !readContext(owner).tasks.some(task => normalizeText(task) === normalizeText(title))) {
             setMsg(`正在添加已确认的任务：${title}`);
+            op.applied.push(`新增任务：${title}`);
+            op.manual.push(`手动删除新增的任务：${title}`);
             await addTasks(owner, [title]);
             assertTarget();
             if (!readContext(owner).tasks.some(task => normalizeText(task) === normalizeText(title))) {
@@ -1254,10 +945,14 @@
           const created = taskInfos(owner).find(task => normalizeText(task.text) === normalizeText(title));
           if (created && who && !created.assignee) {
             setMsg(`正在分配负责人：${title}`);
+            op.applied.push(`负责人：${title} → ${who}`);
+            if (merge) op.manual.push(`「${title}」负责人原为：无，请手动清除`);
             await setTaskAssignee(created.row, who);
           }
           if (created && validDate(due || '') && !created.hasDate) {
             setMsg(`正在设置时间：${title}`);
+            op.applied.push(`日期：${title} → ${due}`);
+            if (merge) op.manual.push(`「${title}」日期原为：无，请手动清除`);
             await setTaskDate(created.row, due);
           }
         }
@@ -1270,10 +965,14 @@
           const due = row.querySelector('input[type=date]').value;
           if (who && (who === 'me' || normalizeText(info.assignee) !== normalizeText(who))) {
             setMsg(`正在调整负责人：${info.text}`);
+            op.applied.push(`负责人：${info.text} → ${who}`);
+            op.manual.push(`「${info.text}」负责人原为：${info.assignee || '无'}`);
             await setTaskAssignee(info.row, who);
           }
           if (validDate(due) && info.dateText !== due) {
             setMsg(`正在调整时间：${info.text}`);
+            op.applied.push(`日期：${info.text} → ${due}`);
+            op.manual.push(`「${info.text}」日期原为：${info.dateText || '无'}`);
             await setTaskDate(info.row, due, { overwrite: true });
           }
           row.dataset.applied = 'true';
@@ -1289,7 +988,10 @@
             setMsg(`任务「${taskText}」已有日期，已跳过`);
           } else {
             setMsg(`正在设置时间：${taskText}`);
-            await setTaskDate(info.row, row.querySelector('input[type=date]').value);
+            const when = row.querySelector('input[type=date]').value;
+            op.applied.push(`日期：${taskText} → ${when}`);
+            op.manual.push(`「${taskText}」日期原为：无，请手动清除`);
+            await setTaskDate(info.row, when);
           }
           row.dataset.applied = 'true';
           row.querySelector('input[type=checkbox]').checked = false;
@@ -1300,7 +1002,10 @@
           const info = taskInfos(owner).find(task => normalizeText(task.text) === normalizeText(row.dataset.task));
           if (!info) throw new Error(`页面上找不到任务「${row.dataset.task}」，未翻译`);
           setMsg(`正在翻译任务：${info.text}`);
-          await rewriteTask(owner, info.editor, row.querySelector('input[type=text]').value.trim());
+          const rewritten = row.querySelector('input[type=text]').value.trim();
+          op.applied.push(`任务改写：${info.text}`);
+          op.rewrites.push({ from: info.text, to: rewritten });
+          await rewriteTask(owner, info.editor, rewritten);
           assertTarget();
           state.expected = readContext(owner);
           row.dataset.applied = 'true';
@@ -1311,6 +1016,9 @@
           assertTarget(true);
           const value = titleInput.value.replace(/\s+/g, ' ').trim();
           setMsg('正在应用已确认的标题…');
+          op.touchedTitle = true;
+          op.applied.push('标题');
+          op.afterTitle = value;
           await writeTitle(owner, value);
           if (!toggle.isConnected || getModal() !== owner) throw new Error('工单已关闭或切换，请核对标题保存状态');
           const current = readContext(owner);
@@ -1324,6 +1032,8 @@
           setMsg('正在发送评论…');
           await postComment(owner, commentArea.value.trim());
           state.commentSent = true;
+          op.applied.push('发送评论');
+          op.manual.push('评论已发送，无法自动撤销，请在 Fabriq 中手动删除');
         }
         setMsg('已应用，请核对 Fabriq 保存状态；已有任务未删除。可点「查看上次对比」回看。');
         succeeded = true;
@@ -1332,6 +1042,7 @@
       } finally {
         state.busy = false;
         updateActions();
+        await saveOperation(snap, op);
         // 成功后保持对比页关闭，直接查看页面上的结果；失败时重新打开以便看到错误并重试。
         if (!succeeded && toggle.isConnected && getModal() === owner && getTitleEl(owner) === state.titleElement &&
             readContext(owner).title === state.expected.title && !dialog.open) showComparison();

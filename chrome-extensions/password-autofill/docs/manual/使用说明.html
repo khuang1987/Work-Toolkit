@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Medtronic Work Assistant 使用说明</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  :root { color-scheme: light; --blue: #007aff; --ink: #1c1c1e; --mute: #6c6c70; --line: #e5e5ea; --soft: #f2f2f7; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); font: 13px/1.75 -apple-system, "SF Pro Text", "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; }
+  .cover { padding: 26px 28px; border-radius: 24px; color: #fff; background: linear-gradient(135deg, #0a84ff, #5e5ce6); }
+  .cover h1 { margin: 0 0 6px; font-size: 30px; letter-spacing: -.02em; }
+  .cover p { margin: 0; opacity: .92; font-size: 14px; }
+  .cover .ver { display: inline-block; margin-top: 12px; padding: 2px 12px; border-radius: 999px; background: rgba(255,255,255,.22); font-size: 12px; }
+  h2 { margin: 26px 0 10px; padding-left: 12px; border-left: 4px solid var(--blue); font-size: 19px; letter-spacing: -.01em; page-break-after: avoid; }
+  h3 { margin: 16px 0 6px; font-size: 15px; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  ol, ul { margin: 6px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  .card { margin: 10px 0; padding: 12px 16px; border-radius: 16px; background: var(--soft); page-break-inside: avoid; }
+  .tip { background: #eaf3ff; } .warn { background: #fff4e0; }
+  code { padding: 1px 6px; border-radius: 6px; background: #ececf1; color: #3a3a8c; font-size: 12px; }
+  kbd { padding: 0 6px; border: 1px solid #d1d1d6; border-radius: 6px; background: #fff; font-size: 12px; }
+  img { max-width: 100%; border: 1px solid var(--line); border-radius: 12px; }
+  .shot { margin: 10px 0; text-align: center; page-break-inside: avoid; }
+  .shot small { display: block; margin-top: 4px; color: var(--mute); }
+  .row { display: flex; gap: 16px; align-items: flex-start; }
+  .row > div { flex: 1; }
+  table { width: 100%; margin: 8px 0; border-collapse: collapse; page-break-inside: avoid; }
+  th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { background: var(--soft); color: var(--mute); font-size: 12px; }
+  .pill { display: inline-block; padding: 0 9px; border-radius: 999px; background: #e5f0ff; color: #0058c0; font-size: 12px; }
+  footer { margin-top: 28px; color: var(--mute); font-size: 11px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>Medtronic Work Assistant</h1>
+  <p>Windchill 智能检索 · 签名文件批量下载 · Fabriq AI 优化 · 一站式工作助手（Chrome 插件）</p>
+  <span class="ver">使用说明 · 版本 3.6.3</span>
+</div>
+
+<h2>一、安装（本地安装，不需要 Google 账号）</h2>
+<ol>
+  <li>把收到的 <code>MedtronicWorkAssistant-v3.6.3.zip</code> 解压到一个<strong>固定文件夹</strong>（例如 <code>D:\Tools\</code>），安装后不要移动或删除这个文件夹。</li>
+  <li>在 Chrome 地址栏输入 <code>chrome://extensions</code> 回车，打开右上角的 <strong>开发者模式</strong>。</li>
+  <li>点左上角 <strong>加载已解压的扩展程序</strong>，选择解压出来的 <code>MedtronicWorkAssistant</code> 文件夹。</li>
+  <li>点浏览器右上角的拼图图标，把 <strong>Medtronic Work Assistant</strong> 固定到工具栏。</li>
+  <li>点工具栏图标，展开 <strong>Windchill</strong>，填写自己的用户名和密码，点「保存账号」。</li>
+</ol>
+<div class="card warn">
+  <strong>注意：</strong>每次打开 Chrome 可能弹出“请停用开发者模式扩展程序”的提示，点 <strong>保留</strong> 即可。如果公司策略禁用了开发者模式，这种安装方式不可用，请联系维护者。
+</div>
+<div class="card tip">
+  <strong>升级：</strong>用新版 zip 解压后<strong>覆盖原文件夹</strong>，再到 <code>chrome://extensions</code> 点插件卡片上的 <strong>刷新</strong> 按钮，最后刷新 Windchill 页面。账号、规则库、记录都会保留。
+</div>
+
+<h2>二、工具栏图标</h2>
+<div class="row">
+  <div class="shot"><img src="img/popup.png" width="230"><small>工具栏弹窗</small></div>
+  <div>
+    <ul>
+      <li><strong>应用列表</strong>：点应用名称直接打开对应网站；点右侧箭头展开该应用的设置（账号、每日自动打开等）。</li>
+      <li><strong>⚙ 设置</strong>：打开「插件后台」（AI 模型、记录、Windchill 规则库等）。</li>
+      <li><strong>■ 中止</strong>：应急停止键，停止自动点击 / 自动填充等正在运行的自动功能。</li>
+      <li>默认显示 Windchill、Fabriq、OEE 三个入口。</li>
+    </ul>
+  </div>
+</div>
+
+<h2>三、Windchill 助手</h2>
+<div class="row">
+  <div class="shot"><img src="img/windchill-panel.png" width="300"><small>Windchill 页面右下角的助手</small></div>
+  <div>
+    <h3>智能查询</h3>
+    <ol>
+      <li>打开 Windchill 页面，右下角出现助手（可拖动；点 <kbd>−</kbd> 收起为图标，再点图标展开）。</li>
+      <li>输入文件号、文件名或关键词，勾选 <span class="pill">图纸</span> <span class="pill">工程文件</span> <span class="pill">质量文件</span> 和文件格式（可多选）。</li>
+      <li>停止输入后自动汇总数量，显示「共 N 条」；点「检索」或按 <kbd>Enter</kbd>，结果由 Windchill 原生页面展示。</li>
+    </ol>
+  </div>
+</div>
+<h3>审批摘要</h3>
+<p>切到「审批摘要」标签：显示当前待审批任务数量和分组；打开具体任务时，页面顶部会出现“审批重点”（主题、编号、版本、流程、负责人、截止时间等）。</p>
+<h3>登录自动填充</h3>
+<p>在 Windchill 登录页自动填入账号密码，并自动点击「完成任务 / Complete Task」。助手里的「自动填充」勾选项可随时关闭。</p>
+<h3>每日自动打开</h3>
+<p>在工具栏弹窗 Windchill 卡片里打开「每日自动打开」并设置时间，浏览器会按时打开 Windchill 首页。</p>
+
+<h2>四、批量下载签名文件</h2>
+<ol>
+  <li>先检索出结果，点助手里「共 N 条」右侧的 <strong>下载</strong> 按钮，会<strong>在新标签页</strong>打开下载页（再次点击只会刷新并切回这个标签页，不会重复新开）。</li>
+  <li>每份文档默认选好“签名文件”：文件名含 <code>(R)</code> / 签名 / 签字 / 会签 / signed 的 PDF 优先，且优先选文件名带<strong>当前版本号</strong>的；没有时取 PDF 主文件。</li>
+  <li><strong>每一行都有下拉</strong>，可切换到其他版本（例如 <code>_D.2(R).pdf</code>、<code>_E.4(R).pdf</code>）或其他文件；带 ★ 的是当前版本。</li>
+  <li>勾选需要的文档，点 <strong>开始下载</strong>。文件保存到浏览器下载目录的 <code>Windchill\日期_关键词\</code> 文件夹。</li>
+</ol>
+<div class="shot"><img src="img/download.png" width="640"><small>下载页：筛选、勾选、每行切换版本</small></div>
+<ul>
+  <li>工具栏：按编号 / 名称筛选、分类筛选、全选 / 取消全选、<strong>AI 辅助</strong>（规则判断不出时让 AI 选文件，需要先配置 AI）、<strong>导出分析</strong>。</li>
+  <li>下载前会先验证链接（避免把登录页当成文件保存），遇到服务器临时错误会自动重试。</li>
+  <li>每次下载结果记录在插件后台的「下载记录」，失败原因、HTTP 状态都能查到。</li>
+</ul>
+<div class="card tip"><strong>提示：</strong>下载时请保持 Windchill 页面打开（不要关闭或刷新）；只能下载你本人有权限的文件。</div>
+
+<h2>五、Windchill 规则库（插件后台）</h2>
+<p>点工具栏 ⚙ 打开插件后台，进入「Windchill 规则库」。按分组折叠显示，改完点页面底部「保存规则」，已打开的 Windchill 页面立即生效：</p>
+<ul>
+  <li><strong>文件分类规则</strong>：图纸（主文件格式、是否排除带前缀编号、名称是否必须含关键词）、工程文件 / 质量文件（编号前缀、名称关键词、排除词）。默认：工程文件 MG / PS，质量文件 PII，图纸为无业务前缀的 PDF。</li>
+  <li><strong>签名文件与下载</strong>：哪些文件名算签名文件、没有签名标记时怎么处理、下载子目录、并发数、下载前验证。</li>
+  <li><strong>规则测试</strong>：输入编号 / 名称，看会被分到哪一类。</li>
+  <li><strong>AI 建议</strong>：根据最近一次检索样本，让 AI 给出规则调整建议（只合并到表单，需要你确认保存）。</li>
+</ul>
+<div class="shot"><img src="img/backstage-rules.png" width="640"><small>插件后台 · Windchill 规则库</small></div>
+
+<h2>六、Fabriq AI 优化</h2>
+<p>在 Fabriq 工单详情中点「AI 优化」展开右侧栏，可单项优化标题、描述、任务、时间，或一键完整优化、进展更新、翻译；生成后先对比，确认后才应用。应用前会保存快照，标题 / 描述 / 任务文字可一键撤销；不能自动撤销的改动会在后台操作记录里列出原值。</p>
+
+<h2>七、插件后台</h2>
+<table>
+  <tr><th style="width:130px">页面</th><th>内容</th></tr>
+  <tr><td>AI 对话记录</td><td>每次 AI 调用的提示词、返回、模型、耗时，可搜索、下载。记录保存在浏览器本地，升级插件不会丢；并自动备份到下载目录的 <code>MWA-Logs</code> 文件夹（<code>ai-log.json</code> / <code>ai-log.md</code>）。</td></tr>
+  <tr><td>操作记录</td><td>各功能关键操作（下载、自动点击、应用 AI 结果等）按日期时间倒序汇总，可按应用 / 结果筛选。</td></tr>
+  <tr><td>Windchill 规则库</td><td>见上一节。</td></tr>
+  <tr><td>下载记录</td><td>Windchill 每次下载的结果和失败原因。</td></tr>
+  <tr><td>页面右上角</td><td><strong>AI 模型</strong>下拉（选中即生效，全插件共享）和<strong>开发者模式</strong>开关。</td></tr>
+</table>
+<p>AI 相关功能（Fabriq 优化、AI 辅助选文件、AI 建议规则）需要先配置 AI 接口和 Key，请联系维护者获取配置方式；配置好后在后台右上角选择模型即可。</p>
+
+<h2>八、常见问题</h2>
+<ul>
+  <li><strong>看不到助手？</strong>确认当前是企业 Windchill 页面，刷新页面；在 <code>chrome://extensions</code> 确认插件已启用。</li>
+  <li><strong>检索结果数量和 Windchill 页面不一致？</strong>助手按“名称或编号包含关键词”统计，Windchill 原生搜索是全文检索，会多出只在正文里出现关键词的结果。</li>
+  <li><strong>下载提示“返回的是网页”或 HTTP 500？</strong>多为登录过期或服务器临时错误：刷新 Windchill 重新登录后再试；仍失败请把「下载记录」里的那一行发给维护者。</li>
+  <li><strong>某份文档没有可选文件？</strong>该文档没有 PDF；可在下拉里改选其他文件，或在规则库里调整“允许的文件格式”。</li>
+  <li><strong>更新后功能异常？</strong>在 <code>chrome://extensions</code> 点插件“刷新”，再刷新业务页面。</li>
+</ul>
+
+<h2>九、隐私与安全</h2>
+<ul>
+  <li>账号、规则、记录都只保存在你本机的 Chrome 中，不会发送给维护者；Windchill / EHR 账号密码以明文保存在浏览器本地存储，请不要在共用电脑上使用。</li>
+  <li>AI 请求只发送到你配置的 AI 接口；发送前会自动隐藏疑似密钥 / 密码字样。AI 的 Key 加密保存在本机。</li>
+  <li>插件只读取 / 下载你有权限的页面和文件，不会绕过 Windchill 的访问控制；下载动作都需要你点击确认。</li>
+</ul>
+
+<h2>十、升版记录</h2>
+<table>
+  <tr><th style="width:80px">版本</th><th>主要变化</th></tr>
+  <tr><td>3.6.3</td><td>修复 Fabriq 中文界面下任务日期 / 负责人写入失败导致中断。</td></tr>
+  <tr><td>3.6.0–3.6.2</td><td>圆角 iOS 风格工具栏；后台右上角切换 AI 模型；Windchill 规则库分组折叠、下载记录独立页面；AI 记录持久化并自动备份为文件；密码输入圆点显示。</td></tr>
+  <tr><td>3.5</td><td>工具栏精简为 ⚙ 设置 / ■ 中止；设置直接打开插件后台。</td></tr>
+  <tr><td>3.4</td><td>AI 接口与 Key 集中到后台管理；模型下拉合并 OpenAI / Claude。</td></tr>
+  <tr><td>3.3</td><td>下载页每行下拉切换版本（默认当前版本）。</td></tr>
+  <tr><td>3.2</td><td>操作记录汇总各插件；弹窗应用入口可按需显示；下载页改为新标签页、只保留一个。</td></tr>
+  <tr><td>3.1</td><td>Windchill 规则库；批量下载签名文件；悬浮窗只显示汇总。</td></tr>
+  <tr><td>3.0</td><td>Fabriq AI 重构：可靠性层、撤销、AI 对话记录与操作记录后台。</td></tr>
+</table>
+
+<footer>Medtronic Work Assistant 3.6.3 · 本地安装版 · 完整更新日志见安装包内 CHANGELOG.md</footer>
+</body>
+</html>

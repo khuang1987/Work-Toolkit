@@ -264,6 +264,41 @@ test('task similarity flags reworded duplicates and ignores unrelated tasks; tas
   const raw = JSON.stringify({ status: 'result', tasks: ['A任务', 'B任务'],
     taskMeta: [{ task: 'A任务', duplicateOf: '已有A', due: '2099-01-01', assignee: 'Kai' }, { task: 'B任务', due: 'bad' }, { nope: 1 }] });
   const parsed = h.parseResult(raw, { scope: { title: false, description: false, tasks: true, schedule: false } });
-  assert.deepEqual(parsed.taskMeta, [{ task: 'A任务', due: '2099-01-01', assignee: 'Kai', duplicateOf: '已有A' },
+  assert.deepEqual(parsed.taskMeta, [{ task: 'A任务', due: parsed.taskMeta[0].due, assignee: null, duplicateOf: '已有A' },
     { task: 'B任务', due: null, assignee: null, duplicateOf: null }]);
+});
+test('schedule and suggested due dates are clamped to two weeks; new tasks never get suggested assignees', () => {
+  const h = require('../fabriq_ai_helpers.js');
+  const scope = { title: false, description: false, tasks: false, schedule: true };
+  const parsed = h.parseResult(JSON.stringify({ status: 'result', schedule: [{ task: 'A', due: '2026-11-06' }, { task: 'B', due: '2026-12-30' }] }),
+    { scope, today: '2026-11-05' });
+  assert.deepEqual(parsed.schedule, [{ task: 'A', due: '2026-11-06' }, { task: 'B', due: '2026-11-19' }]);
+  const tasks = h.parseResult(JSON.stringify({ status: 'result', tasks: ['X'], taskMeta: [{ task: 'X', due: '2027-01-01', assignee: 'Kai' }] }),
+    { scope: { title: false, description: false, tasks: true, schedule: false }, today: '2026-11-05' });
+  assert.deepEqual(tasks.taskMeta, [{ task: 'X', due: '2026-11-19', assignee: null, duplicateOf: null }]);
+  const messages = h.buildMessages({ team: 'T', title: 't', description: '', tasks: [], undatedTasks: ['A'] }, { scope, today: '2026-11-05' });
+  assert.match(messages[0].content, /ECN/);
+  assert.match(messages[0].content, /1-2 个工作日/);
+});
+test('guard: masks credentials, repairs fenced / trailing-comma JSON, retries parse errors once and transient errors once', async () => {
+  const g = require('../fabriq_ai_guard.js');
+  const masked = g.sanitizeText('密码：abc123 token=xyz sk-abcdefghijklmnop1234 Bearer abcdefghijklmnop12345 批次K26J5044');
+  assert.equal(masked.masked, 4);
+  assert.ok(!/abc123|xyz|sk-abcdef|abcdefghijklmnop12345/.test(masked.text));
+  assert.ok(masked.text.includes('批次K26J5044'));
+  assert.deepEqual(JSON.parse(g.normalizeAiOutput('好的：\n```json\n{"a":[1,2,],}\n```')), { a: [1, 2] });
+  const sys = { role: 'system', content: 'S' };
+  const calls = [];
+  const parse = raw => { const v = JSON.parse(raw); if (!v.ok) throw new Error('字段缺失'); return v; };
+  const out = await g.generateGuarded({ messages: [sys, { role: 'user', content: 'u' }], parse,
+    call: async conv => { calls.push(conv); return calls.length === 1 ? '{"nope":1}' : '{"ok":true}'; } });
+  assert.equal(out.attempts, 2);
+  assert.match(calls[1].at(-1).content, /字段缺失/);
+  await assert.rejects(g.generateGuarded({ messages: [sys], parse, call: async () => '{"nope":1}' }), /字段缺失/);
+  let n = 0;
+  const transient = await g.generateGuarded({ messages: [sys], parse, call: async () => { if (++n === 1) throw new Error('AI 请求超时'); return '{"ok":1}'; } });
+  assert.equal(transient.attempts, 2);
+  let m = 0;
+  await assert.rejects(g.generateGuarded({ messages: [sys], parse, call: async () => { m++; throw new Error('AI 接口返回 401（Token 无效或过期）'); } }), /401/);
+  assert.equal(m, 1);
 });

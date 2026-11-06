@@ -94,12 +94,24 @@
     + '影响项区分停机、报废、交付、NCMR、OEE，保留已有的具体数据；没有数据就不写，不能当作零或无影响。'
     + '已采取措施与建议措施必须区分；没有提供数据、图纸、照片或反馈时不写，不能声称已查看附件或已收到回复。'
     + '描述使用简体中文纯文本，不使用 Markdown、列表符号或表格，标题后的回答按行书写。用户调整方向不能取消六项模板或改变事实。';
+  // 任务工期经验：查原因 / 调查类 1-2 个工作日；需要 ECN、等发料等外部等待类约 5 个工作日；整体不超过 2 周。
+  const MAX_SPAN_DAYS = 14;
+  const DURATION_RULE = '工期按任务实际性质估计：查看原因、调查、复核、测量、确认类任务 1-2 个工作日；需要 ECN / 变更、等发料、等采购、等外部回复的任务约 5 个工作日；其他执行类任务 2-3 个工作日。'
+    + `所有日期必须在今天起 ${MAX_SPAN_DAYS} 天（两周）以内，不得超出；只用工作日，并按先后和依赖递增，可以并行的任务不要硬排成串行。`;
   const TASKS_RULE = 'tasks 只包含尚未存在的新任务，通常为3-8条动词开头的具体动作，每条不超过30字，不编号；无需新增时返回空数组。'
-    + '已有任务表达的是同一件事（即使措辞不同）时不要重复新增。同时给出 taskMeta：对 tasks 中每一条给出 {"task":"新任务原文","duplicateOf":"疑似重复的已有任务原文，没有则 null","due":"YYYY-MM-DD 或 null","assignee":"负责人姓名或 null"}。'
-    + 'assignee 只能从「已有任务」里出现过的负责人姓名中选择，按分工合理推荐；没有把握时为 null，不要编造人名。'
-    + 'due 只用今天起的工作日，按先后和依赖递增，没有依据时为 null。';
+    + '已有任务表达的是同一件事（即使措辞不同）时不要重复新增。同时给出 taskMeta：对 tasks 中每一条给出 {"task":"新任务原文","duplicateOf":"疑似重复的已有任务原文，没有则 null","due":"YYYY-MM-DD 或 null"}。'
+    + '不要为新任务指定负责人，负责人由用户自己选择；没有依据时 due 为 null。' + DURATION_RULE;
   const SCHEDULE_RULE = 'schedule 为「待排期任务」逐条给出截止日期：[{"task":"任务原文","due":"YYYY-MM-DD"}]。task 必须与待排期任务原文完全一致；'
-    + '日期不早于今天，只用工作日（周一至周五），按任务先后和依赖递增；用户指定了期限时不得超出，未指定时每项按 1-3 个工作日估计。';
+    + '日期不早于今天；用户指定了期限时不得超出。' + DURATION_RULE;
+
+  // 排期上限：不超过今天起两周，且落在工作日（周末顺延回到周五）。
+  function clampDue(iso, today) {
+    const limit = new Date(`${today}T00:00:00`);
+    limit.setDate(limit.getDate() + MAX_SPAN_DAYS);
+    while (limit.getDay() === 0 || limit.getDay() === 6) limit.setDate(limit.getDate() - 1);
+    const max = todayIso(limit);
+    return iso > max ? max : iso;
+  }
 
   function buildMessages(context, options = {}) {
     const { direction = '', qa = [], previous = null } = options;
@@ -196,8 +208,8 @@
       const today = options.today || todayIso();
       taskMeta = result.taskMeta.filter(item => item && typeof item.task === 'string' && item.task.trim()).map(item => ({
         task: item.task.trim(),
-        due: isValidIsoDate(item.due) && item.due >= today ? item.due : null,
-        assignee: typeof item.assignee === 'string' && item.assignee.trim() ? item.assignee.trim() : null,
+        due: isValidIsoDate(item.due) && item.due >= today ? clampDue(item.due, today) : null,
+        assignee: null,
         duplicateOf: typeof item.duplicateOf === 'string' && item.duplicateOf.trim() ? item.duplicateOf.trim() : null
       }));
     }
@@ -211,7 +223,7 @@
       }
       if (result.schedule.some(item => item.due < today)) throw new Error('AI 排期包含早于今天的日期，请重新生成');
       const seen = new Set();
-      schedule = result.schedule.map(item => ({ task: item.task.trim(), due: item.due }))
+      schedule = result.schedule.map(item => ({ task: item.task.trim(), due: clampDue(item.due, today) }))
         .filter(item => !seen.has(item.task) && seen.add(item.task));
     }
     return { type: 'result', title, description, tasks, ...(taskMeta ? { taskMeta } : {}), schedule };

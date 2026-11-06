@@ -139,6 +139,7 @@
       showToast(`[dry-run] 将点击：${textOf(target)} (${target.tagName}#${target.id})`);
     } else {
       target.click();
+      try { chrome.runtime.sendMessage({ action: 'mwaLogActivity', app: 'Windchill', title: '登录页自动点击', detail: textOf(target) }); } catch (e) { /* 扩展已重载 */ }
     }
     return true;
   }

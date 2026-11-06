@@ -17,34 +17,39 @@
       --red: #ff3b30;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { background: #ececf3; }
     body {
-      width: 300px;
-      padding: 12px 12px 14px;
-      background: var(--bg);
+      width: 320px;
+      padding: 16px 14px 14px;
+      background: linear-gradient(180deg, #f6f6fb 0%, #ececf3 100%);
       color: var(--label);
       color-scheme: light;
-      font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Microsoft YaHei", sans-serif;
+      font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    .header { display: flex; align-items: center; gap: 10px; padding: 2px 4px 12px; }
-    .brand { width: 34px; height: 34px; border-radius: 8px; flex: none; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
-    .header h1 { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
-    .version { margin-left: auto; padding: 1px 9px; border-radius: 10px; background: var(--fill); color: var(--label-3); font-size: 11px; }
+    .header { display: flex; align-items: center; gap: 12px; padding: 0 6px 14px; }
+    .brand { width: 40px; height: 40px; border-radius: 11px; flex: none; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+    .header h1 { font-size: 21px; font-weight: 700; letter-spacing: -.02em; }
+    .version { margin-left: auto; padding: 2px 10px; border-radius: 999px; background: rgba(120, 120, 128, .12); color: var(--label-3); font-size: 11px; font-weight: 500; }
 
-    .group { overflow: hidden; margin-bottom: 12px; border-radius: 14px; background: var(--card); }
-    .app + .app { border-top: 1px solid var(--sep); }
-    .app-head { display: flex; align-items: stretch; }
-    .app-open { flex: 1; display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; transition: background .15s; }
-    .app-open:hover, .app-toggle:hover { background: rgba(120, 120, 128, .08); }
-    .app-open:active, .app-toggle:active { background: rgba(120, 120, 128, .16); }
-    .app-icon { width: 30px; height: 30px; flex: none; border-radius: 7px; background: #fff; object-fit: contain; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .14); }
+    .group { overflow: hidden; margin-bottom: 14px; padding: 4px 0; border-radius: 22px; background: var(--card); box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .06); }
+    .app + .app { position: relative; }
+    .app + .app::before { content: ""; position: absolute; top: 0; left: 70px; right: 16px; border-top: .5px solid var(--sep); }
+    .app[hidden] { display: none; }
+    .app-head { display: flex; align-items: stretch; margin: 2px 8px; border-radius: 16px; overflow: hidden; transition: background .15s; }
+    .app-head:hover { background: rgba(120, 120, 128, .08); }
+    .app-head:active { background: rgba(120, 120, 128, .14); }
+    .app-open { flex: 1; display: flex; align-items: center; gap: 14px; padding: 9px 8px 9px 10px; cursor: pointer; }
+    .app-icon { width: 34px; height: 34px; flex: none; border-radius: 9px; background: #fff; object-fit: contain; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .12), 0 1px 3px rgba(0, 0, 0, .08); }
     .app-icon.blank { background: transparent; }
-    .app-name { font-size: 15px; }
-    .app-toggle { width: 46px; display: flex; align-items: center; justify-content: center; color: var(--label-3); cursor: pointer; transition: background .15s; }
-    .app-toggle::before { content: ""; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .2s; }
+    .app-name { font-size: 16px; font-weight: 500; letter-spacing: -.01em; }
+    .app-toggle { width: 44px; display: flex; align-items: center; justify-content: center; color: #c4c4c8; cursor: pointer; }
+    .app-toggle::before { content: ""; width: 7px; height: 7px; border-right: 2.2px solid currentColor; border-bottom: 2.2px solid currentColor; border-radius: 1px; transform: rotate(-45deg); transition: transform .2s; }
     .app.open .app-toggle::before { transform: rotate(45deg); }
-    .app-body { display: none; padding: 2px 14px 14px 56px; }
-    .app.open .app-body { display: block; }
+    .app-body { display: none; }
+    .app.open .app-body { display: block; margin: 2px 12px 10px; padding: 14px; border-radius: 18px; background: #f4f4f8; }
+    .app-body input[type=text], .app-body input[type=password], .app-body input[type=number], .app-body input[type=time], .app-body select { background: #fff; box-shadow: 0 0 0 .5px rgba(60, 60, 67, .12); }
+    .app-body hr.sep { border-top-color: rgba(60, 60, 67, .1); }
 
     .desc { margin-bottom: 12px; color: var(--label-2); font-size: 12px; line-height: 1.5; }
     .field { margin-bottom: 10px; }
@@ -65,7 +70,7 @@
     .row label { color: var(--label); font-size: 13px; }
 
     button.btn {
-      width: 100%; padding: 8px 12px; border: 0; border-radius: 10px;
+      width: 100%; padding: 9px 14px; border: 0; border-radius: 12px;
       background: rgba(0, 122, 255, .1); color: var(--blue); font: inherit; font-weight: 600;
       cursor: pointer; transition: filter .15s, transform .05s;
     }
@@ -86,11 +91,14 @@
     .switch input:checked + span { background: var(--green); }
     .switch input:checked + span::after { transform: translateX(18px); }
 
-    .footer { padding: 12px 14px; border-radius: 14px; background: var(--card); }
-    .footer .row { margin-bottom: 10px; }
-    #stopAll { background: rgba(255, 59, 48, .1); color: var(--red); }
+    .footer { display: flex; justify-content: center; gap: 14px; padding: 4px 0 2px; }
+    .icon-btn { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .85); color: var(--blue); cursor: pointer; box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 4px 14px rgba(0, 0, 0, .08); transition: transform .12s, background .15s; }
+    .icon-btn:hover { background: #fff; transform: translateY(-1px); }
+    .icon-btn:active { transform: scale(.94); }
+    .icon-btn.danger { color: var(--red); }
+    .icon-btn.danger:hover { background: #fff5f4; }
     .status {
-      display: none; margin-top: 12px; padding: 9px 12px; border-radius: 10px; font-size: 12px;
+      display: none; margin-top: 12px; padding: 10px 14px; border-radius: 14px; font-size: 12px;
       background: rgba(52, 199, 89, .14); color: #248a3d;
     }
     .status.error { background: rgba(255, 59, 48, .12); color: #d70015; }
@@ -103,9 +111,10 @@
     <span class="version">v2.8.6</span>
   </div>
 
+  <div id="mainView">
   <div class="group">
     <!-- Cornerstone -->
-    <div class="app" data-url="https://medtronic.csod.com/ui/lms-learner-home/home">
+    <div class="app" data-feature="cornerstone" data-url="https://medtronic.csod.com/ui/lms-learner-home/home">
       <div class="app-head">
         <div class="app-open"><img class="app-icon" src="icons/cornerstone.png" alt=""><span class="app-name">Cornerstone</span></div>
         <div class="app-toggle" title="展开配置"></div>
@@ -129,13 +138,13 @@
     </div>
 
     <!-- Windchill：登录填充、审批自动确认与助手面板的统一配置 -->
-    <div class="app" data-url="https://khplm.medtronic.com.cn/Windchill/app/#ptc1/homepage">
+    <div class="app" data-feature="windchill" data-url="https://khplm.medtronic.com.cn/Windchill/app/#ptc1/homepage">
       <div class="app-head">
         <div class="app-open"><img class="app-icon" src="icons/windchill.png" alt=""><span class="app-name">Windchill</span></div>
         <div class="app-toggle" title="展开配置"></div>
       </div>
       <div class="app-body">
-        <div class="desc">登录填充 · 审批自动确认 · 助手面板。账号留空则使用 EHR 账号。</div>
+        <div class="desc">登录填充 · 审批自动确认 · 助手面板 · 签名文件批量下载（匹配规则在插件后台「Windchill 规则库」）。账号留空则使用 EHR 账号。</div>
         <div class="field">
           <label for="windchillUsername">用户名</label>
           <input type="text" id="windchillUsername" placeholder="留空 = 使用 EHR 账号">
@@ -161,7 +170,7 @@
     </div>
 
     <!-- EHR -->
-    <div class="app" data-url="http://ehr.medtronic.com.cn/">
+    <div class="app" data-feature="ehr" data-url="http://ehr.medtronic.com.cn/">
       <div class="app-head">
         <div class="app-open"><img class="app-icon" src="icons/ehr.png" alt=""><span class="app-name">EHR</span></div>
         <div class="app-toggle" title="展开配置"></div>
@@ -192,7 +201,7 @@
     </div>
 
     <!-- Workday -->
-    <div class="app" data-url="https://www.myworkday.com/medtronic/d/home.htmld">
+    <div class="app" data-feature="workday" data-url="https://www.myworkday.com/medtronic/d/home.htmld">
       <div class="app-head">
         <div class="app-open"><img class="app-icon" src="icons/workday.png" alt=""><span class="app-name">Workday</span></div>
         <div class="app-toggle" title="展开配置"></div>
@@ -205,51 +214,26 @@
     </div>
 
     <!-- Fabriq -->
-    <div class="app" data-url="https://medtronic.fabriq.tech/">
+    <div class="app" data-feature="fabriq" data-url="https://medtronic.fabriq.tech/">
       <div class="app-head">
         <div class="app-open"><img class="app-icon" src="icons/fabriq.png" alt=""><span class="app-name">Fabriq</span></div>
         <div class="app-toggle" title="展开配置"></div>
       </div>
       <div class="app-body">
-        <div class="desc">模型只在本工具栏弹窗中选择并保存。工单详情中点「AI 优化」展开右侧栏，可单项优化标题、描述、任务、时间，或一键完整优化；生成后先对比，确认后才应用。Key 仅保存在当前浏览器配置中。</div>
-        <div class="field">
-          <label for="aiProvider">接口类型</label>
-          <select id="aiProvider">
-            <option value="openai">OpenAI 兼容</option>
-            <option value="anthropic">Anthropic / Claude</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="aiBaseUrl">接口地址</label>
-          <input type="text" id="aiBaseUrl" placeholder="https://api.gpt.medtronic.com/providers/openai/v1">
-        </div>
-        <div class="field">
-          <label for="aiModel">模型（从列表选择或输入 ID）</label>
-          <input type="text" id="aiModel" list="aiModels" placeholder="刷新列表后选择模型">
-          <datalist id="aiModels"></datalist>
-        </div>
-        <div class="field">
-          <label for="aiKey">API Key</label>
-          <div class="pw">
-            <input type="password" id="aiKey" placeholder="sk-...">
-            <button type="button" class="reveal toggle-password" data-target="aiKey">显示</button>
-          </div>
-        </div>
-        <button class="btn" id="refreshAiModels">刷新模型列表</button>
-        <div class="desc" id="aiModelStatus" role="status" style="margin-top:8px"></div>
-        <button class="btn save" id="saveAi">保存 AI 设置</button>
+        <div class="desc">工单详情中点「AI 优化」展开右侧栏，可单项优化标题、描述、任务、时间，或一键完整优化；生成后先对比，确认后才应用。AI 模型在插件后台页面右上角切换（Windchill 的 AI 辅助也使用同一份）。</div>
+        <button class="btn" id="openAiSettings">打开插件后台</button>
       </div>
     </div>
 
     <!-- Power BI -->
-    <div class="app" data-url="https://app.powerbi.com/groups/me/apps/e588a3a8-b77f-45d1-8aac-00c7e63eda49/reports/d5207bb5-2e70-4671-abd0-5d1d43f44cf4/00c74fe81146ade6334f?experience=power-bi">
+    <div class="app" data-feature="powerbi" data-url="https://app.powerbi.com/groups/me/apps/e588a3a8-b77f-45d1-8aac-00c7e63eda49/reports/d5207bb5-2e70-4671-abd0-5d1d43f44cf4/00c74fe81146ade6334f?experience=power-bi">
       <div class="app-head">
         <div class="app-open"><img class="app-icon" src="icons/powerbi.png" alt=""><span class="app-name">Power BI</span></div>
       </div>
     </div>
 
     <!-- OEE -->
-    <div class="app" data-url="https://cha.livelink.medtronic.com/data/perspective/client/OEE">
+    <div class="app" data-feature="oee" data-url="https://cha.livelink.medtronic.com/data/perspective/client/OEE">
       <div class="app-head">
         <div class="app-open"><img class="app-icon" src="icons/oee.png" alt=""><span class="app-name">OEE</span></div>
       </div>
@@ -257,11 +241,13 @@
   </div>
 
   <div class="footer">
-    <div class="row">
-      <label for="devModeToggle">开发者模式</label>
-      <span class="switch"><input type="checkbox" id="devModeToggle"><span></span></span>
-    </div>
-    <button class="btn" id="stopAll">中止所有指令</button>
+    <button class="icon-btn" id="openSettings" title="设置：打开插件后台（AI 模型、开发者模式、记录、Windchill 规则库）" aria-label="设置">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 14.5a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.88 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.88.34H9a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.88V9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.03z"/></svg>
+    </button>
+    <button class="icon-btn danger" id="stopAll" title="中止所有指令：停止 Cornerstone 自动点击 / 过课、EHR 与 Windchill 的自动填充重试" aria-label="中止所有指令">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
+    </button>
+  </div>
   </div>
 
   <div id="status" class="status"></div>

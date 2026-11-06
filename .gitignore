@@ -53,3 +53,6 @@ _archive/
 
 # 本机快捷方式
 *.lnk
+
+# 第三方大安装包不入库
+chrome-extensions/releases/*.exe

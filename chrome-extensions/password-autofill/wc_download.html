@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Windchill 下载签名文件</title>
+  <style>
+    :root{color-scheme:light;--blue:#087f9c;--line:#e2e8f0;--muted:#64748b}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{display:flex;flex-direction:column;font:13px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;color:#1f2937;background:#f1f5f9}
+    header{padding:10px 16px;background:linear-gradient(135deg,#073c68,#087f9c);color:#fff}
+    header h1{margin:0;font-size:15px}
+    header p{margin:2px 0 0;color:#d8edf8;font-size:12px}
+    .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 16px;background:#fff;border-bottom:1px solid var(--line)}
+    .bar .grow{flex:1}
+    button,select,input[type=search]{border:1px solid #cbd5e1;border-radius:7px;padding:4px 10px;background:#fff;color:#1f2937;font:inherit}
+    button{cursor:pointer}
+    button:hover:not(:disabled){border-color:var(--blue);color:var(--blue)}
+    button:disabled{opacity:.5;cursor:default}
+    button.go{background:var(--blue);border-color:var(--blue);color:#fff}
+    button.go:hover:not(:disabled){color:#fff;filter:brightness(1.08)}
+    input[type=search]{min-width:200px}
+    main{flex:1;overflow:auto;background:#fff}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+    th{position:sticky;top:0;background:#f8fafc;color:var(--muted);font-size:12px;z-index:1}
+    tr.off td{color:#94a3b8}
+    td select{max-width:300px;width:100%}
+    .tag{display:inline-block;padding:0 6px;border-radius:9px;background:#eff6ff;color:#1d4ed8;font-size:11px}
+    .muted{color:var(--muted);font-size:12px}
+    .ok{color:#15803d}.bad{color:#b91c1c;word-break:break-all}
+    footer{padding:8px 16px;background:#fff;border-top:1px solid var(--line)}
+    progress{width:100%;height:8px}
+    #note{min-height:18px;margin-top:4px;color:#334155}
+    .empty{padding:40px;text-align:center;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>下载签名文件 <span id="count"></span></h1>
+    <p id="sub">规则库已为每份文档选好文件；可改选其他文件，勾选后点「开始下载」。</p>
+  </header>
+  <div class="bar">
+    <input id="filter" type="search" placeholder="筛选编号 / 名称">
+    <select id="catFilter">
+      <option value="">全部分类</option>
+      <option value="drawing">图纸</option>
+      <option value="engineering">工程</option>
+      <option value="quality">质量</option>
+      <option value="other">其他</option>
+    </select>
+    <label><input id="onlyReady" type="checkbox" checked> 只看可下载</label>
+    <span class="grow"></span>
+    <button id="selectAll">全选可下载</button>
+    <button id="selectNone">取消全选</button>
+    <button id="aiBtn" title="规则无法确定的文档，交给 AI 判断哪个是签名文件；接口和 Key 在后台隐蔽页面配置，模型在后台「设置」页选择">AI 辅助</button>
+    <button id="exportBtn" title="导出文件清单、选择理由，用于调整规则">导出分析</button>
+  </div>
+  <main><div id="list"></div></main>
+  <footer>
+    <div class="bar" style="padding:0 0 6px;border:0">
+      <button id="start" class="go">开始下载</button>
+      <button id="cancel" hidden>取消</button>
+      <button id="openFolder" title="打开浏览器下载目录">打开下载目录</button>
+      <button id="openLog" title="在插件后台查看下载记录">下载记录</button>
+      <span class="grow"></span>
+      <span id="progressText" class="muted"></span>
+    </div>
+    <progress id="progress" value="0" max="1" hidden></progress>
+    <div id="note"></div>
+  </footer>
+  <script src="wc_rules.js"></script>
+  <script src="wc_ai.js"></script>
+  <script src="fabriq_ai_guard.js"></script>
+  <script src="fabriq_ai_client.js"></script>
+  <script src="wc_download.js"></script>
+  <script src="wc_downloader.js"></script>
+</body>
+</html>

@@ -1,10 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Medtronic Work Assistant",
-  "version": "2.11.0",
+  "version": "3.6.3",
   "description": "集成自动填充、学习助手、任务管理和EHR一键审批的综合工作助手插件",
   "icons": {
     "128": "icon.png"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
   },
   "action": {
     "default_popup": "popup.html",
@@ -20,7 +24,9 @@
     "alarms",
     "notifications",
     "webRequest",
-    "webRequestAuthProvider"
+    "webRequestAuthProvider",
+    "downloads",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "https://api.gpt.medtronic.com/*",
@@ -45,7 +51,7 @@
     },
     {
       "matches": ["https://khplm.medtronic.com.cn/*"],
-      "js": ["content_windchill_login.js", "content_windchill_assistant.js"],
+      "js": ["wc_rules.js", "wc_ai.js", "fabriq_ai_guard.js", "fabriq_ai_client.js", "wc_download.js", "content_windchill_login.js", "content_windchill_assistant.js"],
       "run_at": "document_end",
       "all_frames": true
     },
@@ -90,7 +96,7 @@
     },
     {
       "matches": ["https://medtronic.fabriq.tech/*"],
-      "js": ["content_fabriq.js", "fabriq_ai_helpers.js", "content_fabriq_ai.js"],
+      "js": ["content_fabriq.js", "fabriq_ai_helpers.js", "fabriq_ai_guard.js", "fabriq_ai_style.js", "fabriq_page.js", "fabriq_ai_client.js", "fabriq_undo.js", "content_fabriq_ai.js"],
       "run_at": "document_idle"
     }
   ],

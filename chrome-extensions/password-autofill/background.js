@@ -1,5 +1,5 @@
 // Background script for handling new tab monitoring and closing
-importScripts('pending_sync.js');
+importScripts('pending_sync.js', 'ai_store.js', 'mwa_activity.js', 'mwa_export.js');
 
 let monitoredUrls = new Set();
 let mainTabId = null;
@@ -73,7 +73,7 @@ function fabriqAiProvider(config, provider = config.provider || 'openai') {
 
 async function fabriqAiRequest(config, path, body) {
   if (!config.baseUrl || !config.key) {
-    throw new Error('请先在插件弹窗 Fabriq 卡片中配置 AI 接口、模型和 Key');
+    throw new Error('请先在插件后台的隐蔽页面配置 AI 接口和 Key，并在弹窗设置里选择模型');
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 90000);
@@ -128,9 +128,21 @@ async function fabriqAiModels(config) {
   return models;
 }
 
+// 设置页刷新模型列表：Key 留空表示沿用已保存的 Key，且只在接口地址来源不变时才使用，避免把 Key 发往新地址。
+async function fabriqAiModelsFromPopup(config) {
+  if (!config?.key) {
+    const saved = await MwaAiStore.getConfig();
+    if (!saved?.key || new URL(saved.baseUrl).origin !== new URL(config.baseUrl).origin) {
+      throw new Error('请填写 API Key');
+    }
+    config = { ...config, key: saved.key };
+  }
+  return fabriqAiModels(config);
+}
+
 async function fabriqAiOptions() {
-  const { fabriqAi } = await chrome.storage.local.get('fabriqAi');
-  if (!fabriqAi?.baseUrl || !fabriqAi.key) throw new Error('请先在插件弹窗配置 AI 接口和 Key');
+  const fabriqAi = await MwaAiStore.getConfig();
+  if (!fabriqAi?.baseUrl || !fabriqAi.key) throw new Error('请先在插件后台的隐蔽页面配置 AI 接口和 Key');
   const config = fabriqAiProvider(fabriqAi);
   const company = /^https:\/\/api\.gpt\.medtronic\.com\/providers\/(?:openai|anthropic)\/v1$/.test(config.baseUrl);
   const providers = company ? ['openai', 'anthropic'] : [config.provider];
@@ -145,10 +157,10 @@ async function fabriqAiOptions() {
   return { models, warnings, model: config.model, provider: config.provider };
 }
 
-async function fabriqAiGenerate(messages, selection = {}) {
-  const { fabriqAi } = await chrome.storage.local.get('fabriqAi');
+async function fabriqAiGenerateRaw(messages, selection = {}) {
+  const fabriqAi = await MwaAiStore.getConfig();
   if (!fabriqAi?.baseUrl || !fabriqAi.key || !fabriqAi.model) {
-    throw new Error('请先在插件弹窗 Fabriq 卡片中配置 AI 接口、模型和 Key');
+    throw new Error('请先在插件后台的隐蔽页面配置 AI 接口和 Key，并在弹窗设置里选择模型');
   }
   if (!Array.isArray(messages) || !messages.length ||
       messages.some(m => !m || !['system', 'user', 'assistant'].includes(m.role) || typeof m.content !== 'string')) {
@@ -173,30 +185,161 @@ async function fabriqAiGenerate(messages, selection = {}) {
     ? json.content?.filter(block => block.type === 'text').map(block => block.text).join('\n')
     : json.choices?.[0]?.message?.content;
   if (typeof content !== 'string' || !content.trim()) throw new Error('AI 未返回文本内容');
-  return content;
+  return { content, model, provider: config.provider, usage: json.usage || null };
+}
+
+// 带记录的生成：每次请求（含自动纠正重试）都写入对话记录，便于在插件后台查看和下载。
+async function fabriqAiGenerate(messages, selection = {}, meta = {}) {
+  const started = Date.now();
+  const base = {
+    purpose: String(meta.purpose || 'unknown').slice(0, 60),
+    attempt: Number(meta.attempt) || 1,
+    ticket: String(meta.ticket || '').slice(0, 120),
+    masked: Number(meta.masked) || 0,
+    messages
+  };
+  try {
+    const out = await fabriqAiGenerateRaw(messages, selection);
+    MwaAiStore.logAi({ ...base, ok: true, model: out.model, provider: out.provider, ms: Date.now() - started,
+      response: out.content, usage: out.usage });
+    return out.content;
+  } catch (error) {
+    MwaAiStore.logAi({ ...base, ok: false, ms: Date.now() - started, error: String(error?.message || error) });
+    throw error;
+  }
+}
+
+// Windchill 批量下载：只接受来自 Windchill 页面、同源地址、相对路径文件名的请求。
+const WC_DOWNLOAD_ORIGIN = 'https://khplm.medtronic.com.cn';
+
+function wcDownloadFile(request, sender) {
+  let pageOrigin = '';
+  try { pageOrigin = new URL(sender.tab?.url || '').origin; } catch { /* 非页面来源 */ }
+  if (sender.id !== chrome.runtime.id || pageOrigin !== WC_DOWNLOAD_ORIGIN) throw new Error('只允许 Windchill 页面发起下载');
+  const url = new URL(String(request.url || ''));
+  if (url.origin !== WC_DOWNLOAD_ORIGIN) throw new Error('拒绝下载非 Windchill 同源地址');
+  const filename = String(request.filename || '');
+  if (!filename || /^[\\/]|^[A-Za-z]:|(?:^|[\\/])\.\.(?:[\\/]|$)/.test(filename)) throw new Error('下载文件名无效');
+  return new Promise((resolve, reject) => {
+    chrome.downloads.download({ url: url.href, filename, conflictAction: 'uniquify', saveAs: false }, id => {
+      if (chrome.runtime.lastError || id === undefined) return reject(new Error(chrome.runtime.lastError?.message || '无法开始下载'));
+      let finished = false;
+      const finish = (fn, value) => {
+        if (finished) return;
+        finished = true;
+        chrome.downloads.onChanged.removeListener(listener);
+        clearTimeout(timer);
+        fn(value);
+      };
+      const listener = delta => {
+        if (delta.id !== id) return;
+        if (delta.state?.current === 'complete') {
+          chrome.downloads.search({ id }, ([item]) => finish(resolve, { id, bytes: item?.fileSize || 0 }));
+        } else if (delta.state?.current === 'interrupted') {
+          finish(reject, new Error(`下载中断：${delta.error?.current || '未知原因'}`));
+        }
+      };
+      const timer = setTimeout(() => finish(reject, new Error('下载超时（3 分钟）')), 180000);
+      chrome.downloads.onChanged.addListener(listener);
+    });
+  });
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background script received action:', request.action);
 
   if (request.action === 'fabriqAiGenerate') {
-    fabriqAiGenerate(request.messages, request.selection).then(
+    fabriqAiGenerate(request.messages, request.selection, request.meta).then(
       data => sendResponse({ ok: true, data }),
       err => sendResponse({ ok: false, error: String(err && err.message || err) })
     );
     return true;
   }
 
+  // AI 配置只允许扩展自己的设置页（弹窗 / 插件后台）读写；明文 Key 只有插件后台可以查看。
+  const settingsPageUrls = ['popup.html', 'options.html'].map(page => chrome.runtime.getURL(page));
+  const fromSettingsPage = sender.id === chrome.runtime.id && settingsPageUrls.some(url => (sender.url || '').startsWith(url));
+
+  if (request.action === 'mwaExportLogsNow') {
+    if (!fromSettingsPage) { sendResponse({ ok: false, error: '只能在插件后台使用' }); return; }
+    MwaExport.exportAll().then(data => sendResponse({ ok: true, data }), error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'fabriqAiRevealKey') {
+    if (!fromSettingsPage || !(sender.url || '').startsWith(chrome.runtime.getURL('options.html'))) {
+      sendResponse({ ok: false, error: '只能在插件后台查看 Key' });
+      return;
+    }
+    MwaAiStore.getConfig().then(config => sendResponse({ ok: true, data: config?.key || '' }),
+      error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'fabriqAiGetConfig' || request.action === 'fabriqAiSaveConfig') {
+    if (!fromSettingsPage) {
+      sendResponse({ ok: false, error: '请通过插件设置修改 AI 配置' });
+      return;
+    }
+    const task = request.action === 'fabriqAiGetConfig'
+      ? MwaAiStore.getPublicConfig()
+      : MwaAiStore.saveConfig(request.config).then(() => true);
+    task.then(data => sendResponse({ ok: true, data }), error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (request.action === 'fabriqAiOptions' || request.action === 'fabriqAiModels') {
-    if (request.action === 'fabriqAiModels' && sender.url !== chrome.runtime.getURL('popup.html')) {
+    if (request.action === 'fabriqAiModels' && !fromSettingsPage) {
       sendResponse({ ok: false, error: '请通过插件设置刷新模型列表' });
       return;
     }
     const result = request.action === 'fabriqAiOptions'
-      ? fabriqAiOptions() : fabriqAiModels(request.config);
+      ? fabriqAiOptions() : fabriqAiModelsFromPopup(request.config);
     result.then(data => sendResponse({ ok: true, data }),
       error => sendResponse({ ok: false, error: error.message }));
     return true;
+  }
+
+  if (request.action === 'wcDownloadFile') {
+    wcDownloadFile(request, sender).then(
+      data => sendResponse({ ok: true, ...data }),
+      error => sendResponse({ ok: false, error: String(error && error.message || error) })
+    );
+    return true;
+  }
+
+  if (request.action === 'mwaLogActivity') {
+    if (sender.id === chrome.runtime.id) MwaActivity.log(request);
+    sendResponse({ ok: true });
+    return;
+  }
+
+  if (request.action === 'wcOpenDownloader') {
+    const tabId = sender.tab?.id;
+    if (sender.id !== chrome.runtime.id || tabId === undefined) {
+      sendResponse({ ok: false, error: '只允许 Windchill 页面发起' });
+      return;
+    }
+    chrome.storage.session.set({ [`wcJob:${tabId}`]: { ...request.job, tabId, createdAt: Date.now() } })
+      .then(async () => {
+        const url = chrome.runtime.getURL(`wc_download.html?tab=${tabId}`);
+        // 只保留一个下载标签页：已存在就更新任务并切过去，不再新开。
+        const [existing] = await chrome.tabs.query({ url: chrome.runtime.getURL('wc_download.html*') });
+        if (existing) {
+          await chrome.tabs.update(existing.id, { url, active: true });
+          await chrome.windows.update(existing.windowId, { focused: true });
+        } else {
+          await chrome.tabs.create({ url, active: true });
+        }
+      })
+      .then(() => sendResponse({ ok: true }), error => sendResponse({ ok: false, error: String(error?.message || error) }));
+    return true;
+  }
+
+  if (request.action === 'openOptions') {
+    if (sender.id === chrome.runtime.id) chrome.runtime.openOptionsPage();
+    sendResponse({ ok: true });
+    return;
   }
 
   if (request.action === 'monitorNewTab') {
@@ -407,6 +550,7 @@ function updateContextMenu() {
 }
 
 function stopAllActions() {
+  MwaActivity.log({ app: '插件', title: '中止所有指令', detail: '来自工具栏弹窗或右键菜单' });
   chrome.storage.local.set({
     isAutoClickRunning: false,
     currentClickCount: 0,
@@ -502,6 +646,7 @@ function updateDailyAlarm() {
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'dailyOpenPages') {
     console.log('Daily alarm triggered, opening pages...');
+    MwaActivity.log({ app: 'EHR', title: '每日自动打开', detail: 'http://ehr.medtronic.com.cn/' });
     const urls = [
       'http://ehr.medtronic.com.cn/'
     ];
@@ -564,6 +709,7 @@ function updateWindchillDailyAlarm() {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'windchillDailyOpen') {
+    MwaActivity.log({ app: 'Windchill', title: '每日自动打开', detail: 'Windchill 首页' });
     chrome.tabs.create({ url: 'https://khplm.medtronic.com.cn/Windchill/app/#ptc1/homepage' });
   }
 });

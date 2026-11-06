@@ -155,28 +155,30 @@
     }
   }
 
-  const prefixPattern = /(?:^|[^A-Z0-9])(PII|MG|PS)(?=[A-Z0-9]|[-_ ]|$)/i;
+  // 分类、图纸和签名文件规则来自规则库（插件后台「Windchill 规则库」）；
+  // 先用内置默认值，读取到已保存规则后替换并重新查询。
+  const Rules = globalThis.WcRules;
+  let rules = Rules.defaults();
 
   function documentPrefix(value) {
-    const match = clean(value).match(prefixPattern);
-    return match ? match[1].toUpperCase() : '';
+    return Rules.prefixOf(rules, clean(value));
   }
 
   function hasLeadingDocumentPrefix(value) {
-    return /^[A-Z0-9]{1,12}[-_ ](?=[A-Z0-9])/i.test(clean(value));
+    return Rules.hasLeadingPrefix(rules, clean(value));
   }
 
   function categoryForDocument(item, kind) {
+    const name = firstValue(item, ['Name', 'Title', 'FileName', 'name', 'title']);
     const source = [
       firstValue(item, ['Number', 'DocumentNumber']),
-      firstValue(item, ['Name', 'Title', 'FileName', 'name', 'title']),
+      name,
       firstValue(item, ['Description', 'description']),
       firstValue(item, ['Context', 'Folder', 'Organization']),
       firstValue(item, ['Type', 'Category', 'DocumentType'])
     ].filter(Boolean).join(' ');
-    const prefix = documentPrefix(source);
-    if (prefix === 'PII') return 'quality';
-    if (prefix === 'MG' || prefix === 'PS') return 'engineering';
+    const category = Rules.classify(rules, { text: source, name });
+    if (category) return category;
     if (kind === 'cad' || kind === 'drawing') return 'drawing';
     return 'other';
   }
@@ -232,6 +234,7 @@
       category: categoryForDocument(item, kind),
       format,
       isPdf: format === 'pdf',
+      contents: Rules.extractContents(item, formatFromSource),
       hasLeadingPrefix: hasLeadingDocumentPrefix(number) || hasLeadingDocumentPrefix(title)
     };
   }
@@ -699,13 +702,15 @@
     const endpoints = [];
     const match = `(contains(Name,'${escaped}') or contains(Number,'${escaped}'))`;
 
-    // 质量/工程按编号前缀在服务端过滤，避免 $top 被无关记录占满导致漏数据。
-    if (wantQuality || wantEngineering) {
-      const prefixes = [...(wantQuality ? ['PII'] : []), ...(wantEngineering ? ['MG', 'PS'] : [])];
+    // 质量/工程按规则库里的编号前缀 / 名称关键词在服务端过滤，避免 $top 被无关记录占满导致漏数据。
+    const categoryFilter = Rules.odataCategoryFilter(
+      rules, [...(wantQuality ? ['quality'] : []), ...(wantEngineering ? ['engineering'] : [])], odataString
+    );
+    if ((wantQuality || wantEngineering) && categoryFilter) {
       endpoints.push({
         path: 'DocMgmt/Documents',
         kind: 'document',
-        filter: `${match} and (${prefixes.map((prefix) => `startswith(Number,'${prefix}')`).join(' or ')})`
+        filter: `${match} and (${categoryFilter})`
       });
     } else if (all || (formats.size && !wantDrawing)) {
       endpoints.push({
@@ -725,8 +730,8 @@
       endpoints.push({
         path: 'DocMgmt/Documents',
         kind: 'drawing',
-        // 图纸按名称包含关键词查询，避免只按编号漏掉关联图纸。
-        filter: `contains(Name,'${escaped}')`
+        // 图纸默认按名称包含关键词查询，避免只按编号漏掉关联图纸；规则库可放宽为名称或编号。
+        filter: rules.categories.drawing.requireNameKeyword ? `contains(Name,'${escaped}')` : match
       });
     }
     return endpoints;
@@ -756,7 +761,7 @@
         // 图纸快捷项只保留“名称包含关键词、主文件为 PDF、名称/编号不带
         // 前缀”的内容；接口汇总和原生结果行必须使用同一套规则。
         if (filters.has('drawing') && record.category === 'drawing'
-          && (!record.isPdf || record.hasLeadingPrefix)) return false;
+          && !Rules.drawingAccepts(rules, record.format, record.hasLeadingPrefix)) return false;
         const key = `${record.number}:${record.title}:${record.version}:${record.format}`;
         if (seen.has(key)) return false;
         seen.add(key);
@@ -1019,17 +1024,18 @@
       ].filter(Boolean).join(' '))
     ]).filter(Boolean);
     const preferredTokens = preferredValues.flatMap((value) => value.split(/\s+/).map(clean)).filter(Boolean);
-    const preferred = preferredTokens.find((token) => /^(?:PII|MG|PS)(?:[-_ ]?[A-Z0-9][A-Z0-9._-]*)$/i.test(token))
+    const prefixedToken = new RegExp(`^(?:${Rules.prefixAlternation(rules)})(?:[-_ ]?[A-Z0-9][A-Z0-9._-]*)$`, 'i');
+    const preferred = preferredTokens.find((token) => prefixedToken.test(token))
       || preferredTokens.find((token) => identifierMatches(token, keyword));
     if (preferred) return preferred;
 
     const values = rowTextValues(row);
     const tokens = values.flatMap((value) => value.split(/\s+/).map(clean)).filter(Boolean);
-    const prefixed = tokens.find((token) => /^(?:PII|MG|PS)(?:[-_ ]?[A-Z0-9][A-Z0-9._-]*)$/i.test(token));
+    const prefixed = tokens.find((token) => prefixedToken.test(token));
     if (prefixed) return prefixed;
     const exact = tokens.find((token) => identifierMatches(token, keyword));
     if (exact) return exact;
-    const match = elementText(row).match(/(?:PII|MG|PS)[-_ ]?[A-Z0-9._-]+|[A-Z0-9][A-Z0-9._-]{4,}/i);
+    const match = elementText(row).match(new RegExp(`(?:${Rules.prefixAlternation(rules)})[-_ ]?[A-Z0-9._-]+|[A-Z0-9][A-Z0-9._-]{4,}`, 'i'));
     return match ? match[0] : '';
   }
 
@@ -1082,8 +1088,9 @@
     return clean(identifier).replace(/\s+/g, '').toUpperCase() === clean(keyword).replace(/\s+/g, '').toUpperCase();
   }
 
-  function rowDocumentPrefix(row, identifier) {
-    return documentPrefix(identifier) || documentPrefix(rowNameText(row));
+  function rowDocumentCategory(row, identifier) {
+    const name = rowNameText(row);
+    return Rules.classify(rules, { text: `${identifier} ${name}`, name });
   }
 
   function rowHasLeadingPrefix(row, identifier) {
@@ -1096,7 +1103,7 @@
     const needle = clean(keyword).replace(/\s+/g, '').toUpperCase();
     const hay = clean(`${identifier} ${rowNameText(row)}`).replace(/\s+/g, '').toUpperCase();
     if (needle && !hay.includes(needle)) return false;
-    const prefix = rowDocumentPrefix(row, identifier);
+    const rowCategory = rowDocumentCategory(row, identifier);
     const onlyDrawing = filters.has('drawing')
       && !filters.has('engineering')
       && !filters.has('quality');
@@ -1111,13 +1118,13 @@
       if (!filters.size) return true;
       // 业务分类以原生结果行的编号/名称证据为准，避免同一编号下的普通
       // PDF 文档误继承另一条“图纸”记录的分类。
-      if (filters.has('quality') && prefix === 'PII') return true;
-      if (filters.has('engineering') && (prefix === 'MG' || prefix === 'PS')) return true;
+      if (filters.has('quality') && rowCategory === 'quality') return true;
+      if (filters.has('engineering') && rowCategory === 'engineering') return true;
       if (filters.has('drawing') && record.category === 'drawing') {
         const nativeFormat = rowFormat(row);
-        return rowLooksLikeDrawing(row) && record.isPdf && !rowHasLeadingPrefix(row, identifier)
-          && rowNameContains(row, keyword)
-          && (nativeFormat === 'pdf' || nativeFormat === 'other');
+        return rowLooksLikeDrawing(row) && Rules.drawingFormatOk(rules, record.format) && !rowHasLeadingPrefix(row, identifier)
+          && (!rules.categories.drawing.requireNameKeyword || rowNameContains(row, keyword))
+          && (nativeFormat === 'other' || Rules.drawingFormatOk(rules, nativeFormat));
       }
       return false;
     });
@@ -1127,11 +1134,13 @@
 
     if (!rowMatchesFormats(row, formats)) return false;
     if (!filters.size) return true;
-    if (filters.has('quality') && prefix === 'PII') return true;
-    if (filters.has('engineering') && (prefix === 'MG' || prefix === 'PS')) return true;
-    // 图纸必须是无前缀、名称包含关键词，并且原生行或 REST 内容明确标记为 PDF。
-    return filters.has('drawing') && rowLooksLikeDrawing(row) && !prefix && !rowHasLeadingPrefix(row, identifier)
-      && rowNameContains(row, keyword) && rowHasPdf(row);
+    if (filters.has('quality') && rowCategory === 'quality') return true;
+    if (filters.has('engineering') && rowCategory === 'engineering') return true;
+    // 图纸必须是无业务前缀、名称包含关键词，并且原生行或 REST 内容明确是规则允许的格式。
+    return filters.has('drawing') && rowLooksLikeDrawing(row) && !rowCategory
+      && !documentPrefix(identifier) && !documentPrefix(rowNameText(row)) && !rowHasLeadingPrefix(row, identifier)
+      && (!rules.categories.drawing.requireNameKeyword || rowNameContains(row, keyword))
+      && Rules.drawingFormatOk(rules, rowFormat(row));
   }
 
   function restoreNativeResultRows() {
@@ -1482,11 +1491,12 @@
       queueNativeResultFilter();
       state.truncated = result.truncated;
       state.serverTotal = result.serverTotal;
+      saveRuleSamples();
       status.className = 'status done';
       status.textContent = state.partial
         ? `部分分类接口暂不可用，已显示可取得结果 · 共 ${state.records.length} 条。`
         : submitNative && state.nativeSearch === 'submitted'
-          ? '检索完成，列表按相关度排序；点击条目打开。'
+          ? '检索完成，结果在 Windchill 页面展示；可点「下载」。'
           : `数量汇总已更新 · 共 ${state.records.length} 条。`;
       renderSearch();
     } catch (error) {
@@ -1593,15 +1603,8 @@
     .summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .status { min-height: 15px; padding: 0 10px 8px; color: #536675; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .status.error { color: #b42318; }
-    .result-list { max-height: 260px; overflow-y: auto; border-top: 1px solid #d7e4ec; }
-    .result-item { display: block; padding: 6px 10px; color: inherit; text-decoration: none; border-bottom: 1px solid #e6eef3; }
-    .result-item:hover { background: #eaf3f9; }
-    .result-top { display: flex; align-items: center; gap: 5px; }
-    .result-top strong { color: #073c68; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tag { flex: none; padding: 0 5px; border: 1px solid #b9ceda; border-radius: 3px; color: #36566b; font-size: 10px; line-height: 15px; }
-    .tag.muted { color: #6b7d89; border-color: #d7e4ec; }
-    .result-name { color: #536675; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .status.done { margin: 0 10px 8px; padding: 3px 8px; color: #137333; background: #e6f4ea; border-left: 3px solid #1e9e4a; border-radius: 3px; font-weight: 600; }
+    .dl-mini { flex: none; align-self: center; margin-left: auto; padding: 1px 8px; border-color: #087f9c; color: #075e9c; font-size: 10px; line-height: 16px; }
   `);
   shadow.appendChild(style);
 
@@ -1686,10 +1689,12 @@
   const summaryText = make('span', {}, '支持多选标签；结果在 Windchill 高级搜索页面展示。');
   summary.append(count, summaryText);
   const status = make('div', { class: 'status' }, '输入后更新数量；点击检索或按 Enter 提交 Windchill 高级搜索。');
-  const resultList = make('div', { class: 'result-list', hidden: true, 'aria-label': '检索结果' });
   const collapsedButton = make('button', { class: 'collapsed-button', type: 'button', title: '展开 Windchill 助手', 'aria-label': '展开 Windchill 助手' });
   collapsedButton.append(make('img', { src: chrome.runtime.getURL('icons/windchill.png'), alt: 'Windchill' }));
-  panel.append(head, toolbar, filters, formatRow, approvalView, summary, status, resultList, collapsedButton);
+  const dlOpen = make('button', { class: 'dl-mini', type: 'button', title: '在新标签页中选择并下载签名文件' }, '下载');
+  const dlBar = dlOpen;
+  summary.append(dlOpen);
+  panel.append(head, toolbar, filters, formatRow, approvalView, summary, status, collapsedButton);
   shadow.append(panel);
 
   function clampPanelPosition(left, top) {
@@ -1989,43 +1994,115 @@
     currentTaskFocus.append(grid);
   }
 
-  const categoryLabels = { drawing: '图纸', engineering: '工程', quality: '质量', other: '其他' };
+  // ───── 签名文件批量下载（独立弹窗选择，本脚本负责验证与下载） ─────
+  const dl = { plans: new Map(), abort: null };
 
-  function renderResultList() {
-    resultList.textContent = '';
-    const keyword = clean(query.value);
-    if (state.mode !== 'search' || !keyword || state.loading || !state.records.length) {
-      resultList.hidden = true;
+  // 弹窗与脚本约定的文件序号：有内容明细时就是 record.contents 的下标；没有时只有一个“主文件”占位。
+  function fileListOf(record) {
+    return record.contents.length
+      ? record.contents
+      : [{ role: 'primary', id: '', fileName: '', mime: '', urls: [], size: 0, format: record.format }];
+  }
+
+  function downloadJob() {
+    dl.plans.clear();
+    const items = state.records.slice(0, rules.download.maxFiles).map((record, index) => {
+      const key = `${index}:${record.oid || record.number}`;
+      const plan = Rules.planSigned(rules, record);
+      const files = fileListOf(record);
+      dl.plans.set(key, { record, files });
+      return {
+        key, number: record.number, title: record.title, version: record.version, format: record.format,
+        category: record.category, status: plan.status, reason: plan.reason, confidence: plan.confidence,
+        pickIndex: plan.pick ? Math.max(0, files.indexOf(plan.pick)) : -1,
+        files: files.map((file) => ({ role: file.role, fileName: file.fileName, format: file.format, size: file.size, signed: Rules.fileIsSigned(rules, file) }))
+      };
+    });
+    return { keyword: clean(query.value), origin: location.origin, rules, items };
+  }
+
+  function updateDownloadBar() {
+    dlBar.hidden = state.mode !== 'search';
+  }
+
+  function openDownloader() {
+    if (state.loading || !state.records.length) {
+      status.className = 'status';
+      status.textContent = '请先检索：有结果后再点「下载」。';
       return;
     }
-    resultList.hidden = false;
-    state.records.slice(0, 100).forEach((record) => {
-      const item = make('a', { class: 'result-item', href: record.oid ? `#ptc1/tcomp/infoPage?oid=${encodeURIComponent(record.oid)}&u8=1` : '#', title: record.text });
-      const top = make('div', { class: 'result-top' });
-      top.append(make('strong', {}, record.number || record.title), make('span', { class: 'tag' }, categoryLabels[record.category] || '其他'));
-      if (record.format && record.format !== 'other') top.append(make('span', { class: 'tag' }, record.format.toUpperCase()));
-      if (record.status) top.append(make('span', { class: 'tag muted' }, record.status));
-      item.append(top, make('div', { class: 'result-name' }, record.title));
-      resultList.append(item);
+    try {
+      chrome.runtime.sendMessage({ action: 'wcOpenDownloader', job: downloadJob() }, (response) => {
+        if (chrome.runtime.lastError || !response?.ok) {
+          status.className = 'status error';
+          status.textContent = `无法打开下载页：${chrome.runtime.lastError?.message || response?.error || '未知错误'}`;
+        }
+      });
+    } catch (error) {
+      status.className = 'status error';
+      status.textContent = '扩展已重载，请刷新页面';
+    }
+  }
+
+  // 下载弹窗逐份请求：验证下载地址后交给后台 chrome.downloads。
+  try {
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.action === 'wcDownloadCancel') {
+        dl.abort?.abort();
+        dl.abort = null;
+        sendResponse({ ok: true });
+        return;
+      }
+      if (request.action !== 'wcDownloadItem') return;
+      const entry = dl.plans.get(request.key);
+      const content = entry && entry.files[request.fileIndex];
+      if (!content) {
+        sendResponse({ status: 'failed', reason: '检索结果已变化，请回到 Windchill 页面重新点「下载」' });
+        return;
+      }
+      dl.abort = dl.abort && !dl.abort.signal.aborted ? dl.abort : new AbortController();
+      globalThis.WcDownload.downloadOne({
+        record: entry.record, content, rules, origin: location.origin, batch: request.batch, signal: dl.abort.signal,
+        useFileName: Boolean(request.useFileName)
+      }).then(sendResponse);
+      return true;
     });
+  } catch (error) {}
+
+  dlOpen.addEventListener('click', openDownloader);
+
+  // 最近一次检索的样本（编号 / 名称 / 文件名），供插件后台让 AI 建议规则调整；只保存文本，不含地址。
+  function saveRuleSamples() {
+    storageSet({
+      windchillRuleSamples: state.records.slice(0, 60).map((record) => ({
+        number: record.number, title: record.title, format: record.format, category: record.category,
+        files: record.contents.map((content) => content.fileName).filter(Boolean)
+      })),
+      windchillRuleSamplesAt: Date.now()
+    });
+  }
+
+  function applyRules(raw) {
+    rules = Rules.normalize(raw);
+    if (state.mode === 'search' && clean(query.value)) scheduleSearch(false);
+  }
+
+  // 悬浮窗只显示数量汇总和状态条；结果列表交给 Windchill 原生页面和下载窗口，避免结果过多放不下。
+  function renderResultList() {
+    updateDownloadBar();
   }
 
   function renderSearch() {
     const keyword = clean(query.value);
     if (!keyword) {
       count.textContent = '未查询';
-      summaryText.textContent = '支持多选标签；结果在 Windchill 高级搜索页面展示。';
+      summaryText.textContent = '';
       renderResultList();
       return;
     }
     count.textContent = state.loading ? '查询中…' : `共 ${state.records.length} 条` + (state.paging ? ' …' : '');
-    const more = !state.loading && state.truncated
-      ? ` · 系统匹配 ${state.serverTotal} 条，仅列出前 100 条，请输入更完整的编号`
-      : '';
-    const nativeNote = !state.loading && state.nativeSearch === 'submitted' && state.nativeShown !== null && state.nativeShown < state.records.length
-      ? ` · 原生结果页仅命中 ${state.nativeShown} 条（全文检索不含名称子串），以本列表为准`
-      : '';
-    summaryText.textContent = `${selectedFilterLabel()} · ${selectedFormatLabel()} · 名称或编号含关键词 · 按相关度排序${more}${nativeNote}`;
+    // 汇总只显示数量，不再附加说明文字。
+    summaryText.textContent = '';
     renderResultList();
   }
 
@@ -2045,6 +2122,7 @@
     const approvalMode = state.mode === 'approval';
     [toolbar, filters, formatRow].forEach((element) => { element.hidden = approvalMode; });
     approvalView.hidden = !approvalMode;
+    if (approvalMode) { dlBar.hidden = true; }
     if (approvalMode) renderApproval(); else renderSearch();
   }
 
@@ -2114,7 +2192,6 @@
     state.nativeSearch = 'idle';
     state.resultFilterReady = false;
     query.value = '';
-    resultList.hidden = true;
     restoreNativeResultRows();
     nativeFilterSignature = '';
     approvalTab.classList.add('active');
@@ -2149,6 +2226,14 @@
   }
   render();
   loadCredentialStatus();
+  storageGet([Rules.STORAGE_KEY], (result) => {
+    if (result && result[Rules.STORAGE_KEY]) applyRules(result[Rules.STORAGE_KEY]);
+  });
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes[Rules.STORAGE_KEY]) applyRules(changes[Rules.STORAGE_KEY].newValue);
+    });
+  } catch (error) {}
   if (state.mode === 'approval') {
     restoreApprovalTaskCache();
     renderApproval();

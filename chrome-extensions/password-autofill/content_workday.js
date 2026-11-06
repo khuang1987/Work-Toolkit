@@ -700,6 +700,7 @@ function runAutomation() {
   if (isRunning) { log('已在运行中'); return; }
   automationMode = 'rating';
   const maxCount = getPanelCount(999);
+  try { chrome.runtime.sendMessage({ action: 'mwaLogActivity', app: 'Workday', title: '启动绩效评估', detail: `最多 ${maxCount} 条` }); } catch (e) { /* 扩展已重载 */ }
   isRunning = true;
   processedCount = 0;
   totalCount = 0;
@@ -740,6 +741,7 @@ function runSubmitAutomation() {
   if (isRunning) { log('已在运行中'); return; }
   const maxCount = getPanelCount(999);
   automationMode = 'submit';
+  try { chrome.runtime.sendMessage({ action: 'mwaLogActivity', app: 'Workday', title: '启动绩效提交', detail: `最多 ${maxCount} 条` }); } catch (e) { /* 扩展已重载 */ }
   isRunning = true;
   processedCount = 0;
   totalCount = 0;

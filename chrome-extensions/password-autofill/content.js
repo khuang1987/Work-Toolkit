@@ -197,6 +197,7 @@ function runEhrAutoFill() {
             
             if (usernameSuccess && passwordSuccess) {
               console.log('✅ 自动填充成功');
+              try { chrome.runtime.sendMessage({ action: 'mwaLogActivity', app: /csod/.test(location.hostname) ? 'Cornerstone' : 'EHR', title: '登录自动填充', detail: location.hostname }); } catch (e) { /* 扩展已重载 */ }
               
               // 尝试聚焦验证码输入框和勾选"7天内免登陆"
               if (currentUrl.includes('ehr.medtronic.com.cn')) {
@@ -237,6 +238,7 @@ function runEhrAutoFill() {
                 setTimeout(attemptFill, 500);
               } else {
                 console.log('❌ 已尝试3次填充，均失败');
+                try { chrome.runtime.sendMessage({ action: 'mwaLogActivity', ok: false, app: /csod/.test(location.hostname) ? 'Cornerstone' : 'EHR', title: '登录自动填充', detail: `${location.hostname}：已尝试 3 次均失败` }); } catch (e) { /* 扩展已重载 */ }
                 showToast(
                   '自动填充失败，已尝试3次。请手动输入账号密码。',
                   'error',
@@ -512,6 +514,7 @@ function createFloatingButton() {
     autoSkipRunning = !autoSkipRunning;
     updateSkipBtn();
     if (autoSkipRunning) {
+      try { chrome.runtime.sendMessage({ action: 'mwaLogActivity', app: 'Cornerstone', title: '开启自动跳过视频', detail: location.hostname }); } catch (e) { /* 扩展已重载 */ }
       runAutoSkip();
     } else {
       if (autoSkipTimer) { clearTimeout(autoSkipTimer); autoSkipTimer = null; }

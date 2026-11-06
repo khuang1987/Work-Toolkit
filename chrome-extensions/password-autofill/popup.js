@@ -3,6 +3,15 @@ document.addEventListener('DOMContentLoaded', function () {
   const version = document.querySelector('.version');
   if (version) version.textContent = 'v' + chrome.runtime.getManifest().version;
 
+  // 应用入口显示 / 隐藏：默认只显示 Windchill、Fabriq、OEE；其余在插件后台「功能管理」（隐藏入口）中开启。
+  const DEFAULT_FEATURES = { windchill: true, fabriq: true, oee: true };
+  const applyFeatures = saved => {
+    const features = { ...DEFAULT_FEATURES, ...(saved || {}) };
+    document.querySelectorAll('.app[data-feature]').forEach(card => { card.hidden = !features[card.dataset.feature]; });
+  };
+  chrome.storage.local.get('mwaFeatures', r => applyFeatures(r.mwaFeatures));
+  chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes.mwaFeatures) applyFeatures(changes.mwaFeatures.newValue); });
+
   // 密码显示/隐藏
   document.querySelectorAll('.toggle-password').forEach(button => {
     button.addEventListener('click', function (e) {
@@ -34,7 +43,6 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   bindSwitch('autoClickEnabled', 'autoClickEnabled', '自动点击面板');
   bindSwitch('autoClosePopup', 'autoClosePopup', '自动关闭课程弹窗');
-  bindSwitch('devModeToggle', 'devMode', '开发者模式');
   bindSwitch('dailyOpenSwitch', 'dailyOpenEnabled', 'EHR 每日打开');
 
   chrome.storage.local.get(['dailyOpenTime'], r => {
@@ -83,99 +91,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // Fabriq AI 设置
-  const aiBase = document.getElementById('aiBaseUrl');
-  const aiProvider = document.getElementById('aiProvider');
-  const aiModel = document.getElementById('aiModel');
-  const aiKey = document.getElementById('aiKey');
-  const aiModels = document.getElementById('aiModels');
-  const aiModelStatus = document.getElementById('aiModelStatus');
-  const refreshModels = document.getElementById('refreshAiModels');
-  chrome.storage.local.get(['fabriqAi'], r => {
-    const c = r.fabriqAi || {};
-    aiBase.value = c.baseUrl || '';
-    aiProvider.value = c.provider || 'openai';
-    aiModel.value = c.model || '';
-    aiKey.value = c.key || '';
-    if (c.baseUrl && c.key) {
-      chrome.permissions.contains({ origins: [new URL(c.baseUrl).origin + '/*'] }, ok => { if (ok) loadModels(); });
-    }
-  });
-  function readAiConfig() {
-    const url = new URL(aiBase.value.trim());
-    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
-      throw new Error('接口地址需为不含账号、查询参数或片段的 HTTPS 地址');
-    }
-    if (!aiKey.value.trim()) throw new Error('请填写 API Key');
-    const provider = aiProvider.value;
-    if (url.origin === 'https://api.gpt.medtronic.com' &&
-        /^\/providers\/(?:openai|anthropic)\/v1\/?$/.test(url.pathname)) {
-      url.pathname = `/providers/${provider}/v1`;
-    }
-    return { baseUrl: url.href.replace(/\/$/, ''), provider, model: aiModel.value.trim(), key: aiKey.value.trim() };
-  }
-  function aiPermission(config, callback) {
-    chrome.permissions.request({ origins: [new URL(config.baseUrl).origin + '/*'] }, granted => {
-      if (chrome.runtime.lastError || !granted) {
-        aiModelStatus.textContent = '未授权访问该接口地址';
-        showStatus('未授权访问该接口地址', 'error');
-      } else callback();
-    });
-  }
-  aiProvider.addEventListener('change', () => {
-    if (/^https:\/\/api\.gpt\.medtronic\.com\/providers\/(?:openai|anthropic)\/v1\/?$/.test(aiBase.value.trim())) {
-      aiBase.value = `https://api.gpt.medtronic.com/providers/${aiProvider.value}/v1`;
-    }
-    aiModel.value = '';
-    aiModels.replaceChildren();
-    aiModelStatus.textContent = '接口类型已切换，请刷新模型列表后选择模型并保存';
-  });
-  aiBase.addEventListener('input', () => {
-    aiModels.replaceChildren();
-    aiModelStatus.textContent = '接口地址已修改，请刷新模型列表';
-  });
-  refreshModels.addEventListener('click', () => loadModels(true));
-  function loadModels(askPermission) {
-    let config;
-    try { config = readAiConfig(); }
-    catch (error) { if (askPermission) showStatus(error.message, 'error'); return; }
-    const run = async () => {
-      refreshModels.disabled = true;
-      aiModelStatus.textContent = '正在查询该接口实际开放的模型…';
-      try {
-        const response = await chrome.runtime.sendMessage({ action: 'fabriqAiModels', config });
-        if (!response?.ok) throw new Error(response?.error || '模型列表查询失败');
-        const current = readAiConfig();
-        if (current.baseUrl !== config.baseUrl || current.provider !== config.provider || current.key !== config.key) {
-          throw new Error('设置已更改，请重新刷新模型列表');
-        }
-        aiModels.replaceChildren(...response.data.map(model => {
-          const option = document.createElement('option');
-          option.value = model.id;
-          option.label = model.name;
-          return option;
-        }));
-        aiModelStatus.textContent = `已获取 ${response.data.length} 个文本模型，可从模型输入框列表中选择`;
-      } catch (error) {
-        aiModelStatus.textContent = error.message;
-        showStatus(error.message, 'error');
-      } finally { refreshModels.disabled = false; }
-    };
-    if (askPermission) aiPermission(config, run); else run();
-  }
-  document.getElementById('saveAi').addEventListener('click', function () {
-    let config;
-    try {
-      config = readAiConfig();
-      if (!config.model) throw new Error('请选择或输入模型 ID');
-    } catch (error) { showStatus(error.message, 'error'); return; }
-    aiPermission(config, () => {
-      chrome.storage.local.set({ fabriqAi: config }, () => {
-        if (chrome.runtime.lastError) showStatus('AI 设置保存失败', 'error');
-        else showStatus('AI 设置已保存', 'success');
-      });
-    });
-  });
+  // 设置、开发者模式、AI 模型都在插件后台页面里（模型切换在页面右上角），这里只负责打开。
+  document.getElementById('openSettings').addEventListener('click', () => chrome.runtime.openOptionsPage());
+  document.getElementById('openAiSettings').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
   // Cornerstone点击次数设置
   const clickCountInput = document.getElementById('clickCount');

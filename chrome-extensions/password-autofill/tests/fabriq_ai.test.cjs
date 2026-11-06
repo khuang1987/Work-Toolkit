@@ -11,12 +11,14 @@ const companyBase = 'https://api.gpt.medtronic.com/providers/openai/v1';
 const messages = [{ role: 'system', content: 'Return JSON' }, { role: 'user', content: 'Synthetic test' }];
 
 function harness(fetch, config = {}) {
+  const saved = { baseUrl: companyBase, key: 'synthetic-not-a-real-key', model: 'gpt-4.1', ...config };
+  const logs = [];
   const context = vm.createContext({
     URL, AbortController, setTimeout, clearTimeout, fetch,
-    chrome: { storage: { local: { get: async () => ({ fabriqAi: {
-      baseUrl: companyBase, key: 'synthetic-not-a-real-key', model: 'gpt-4.1', ...config
-    } }) } } }
+    MwaAiStore: { getConfig: async () => ({ ...saved }), logAi: entry => logs.push(entry) },
+    chrome: { storage: { local: { get: async () => ({ fabriqAi: saved }) } } }
   });
+  context.logs = logs;
   vm.runInContext(adapter, context);
   return context;
 }
@@ -134,4 +136,18 @@ test('HTTP errors, truncated output, empty content and request timeouts remain e
   });
   context.setTimeout = callback => setTimeout(callback, 1);
   await assert.rejects(context.fabriqAiGenerate(messages), /请求超时/);
+});
+
+test('every generation is logged with purpose and never contains the API key', async () => {
+  const context = harness(async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '{"ok":1}' } }], usage: { total_tokens: 9 } }) }));
+  await context.fabriqAiGenerate(messages, {}, { purpose: 'progress', ticket: 'T-1', attempt: 2, masked: 1 });
+  await assert.rejects(context.fabriqAiGenerate([{ role: 'tool', content: 'x' }], {}, { purpose: 'bad' }));
+  assert.equal(context.logs.length, 2);
+  assert.equal(context.logs.find(entry => entry.purpose === 'bad').ok, false);
+  const ok = context.logs.find(entry => entry.purpose === 'progress');
+  assert.equal(ok.ok, true);
+  assert.equal(ok.attempt, 2);
+  assert.equal(ok.ticket, 'T-1');
+  assert.equal(ok.response, '{"ok":1}');
+  assert.ok(!JSON.stringify(context.logs).includes('synthetic-not-a-real-key'));
 });

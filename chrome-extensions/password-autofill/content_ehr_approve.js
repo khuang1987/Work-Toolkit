@@ -1054,6 +1054,10 @@
     redraw();
 
     const msg = `${flowLabel} 审批完成:\n✅ 通过 ${approved} 条\n` + (failed ? `❌ 失败 ${failed} 条\n${failures.slice(0, 6).join('\n')}` : '');
+    try {
+      chrome.runtime.sendMessage({ action: 'mwaLogActivity', app: 'EHR', ok: !failed, title: `${flowLabel} 一键审批`,
+        detail: `通过 ${approved} 条${failed ? ` · 失败 ${failed} 条：${failures.slice(0, 3).join('；')}` : ''}` });
+    } catch (e) { /* 扩展已重载 */ }
     showToast(msg, failed ? 'warning' : 'success', 8000);
   }
 
