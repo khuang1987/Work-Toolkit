@@ -65,9 +65,9 @@
   #${PANEL_ID} .mwa-mod-t b{font-weight:600;font-size:14px}
   #${PANEL_ID} .mwa-mod-h small{font-size:12px;font-weight:400;color:#64748b}
   #${PANEL_ID} .mwa-sign{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#fff;border:1px solid #94a3b8;color:#334155;font-size:18px;line-height:1;font-weight:600}
-  #${PANEL_ID} .mwa-mod.open .mwa-mod-h{background:#2563eb;color:#fff}
-  #${PANEL_ID} .mwa-mod.open .mwa-mod-h small{color:#dbeafe}
-  #${PANEL_ID} .mwa-mod.open .mwa-sign{background:#fff;border-color:#fff;color:#2563eb}
+  #${PANEL_ID} .mwa-mod.open .mwa-mod-h{background:#eef2f7;color:#0f172a;box-shadow:inset 3px 0 0 #2563eb;border-bottom:1px solid #dbe3ee}
+  #${PANEL_ID} .mwa-mod.open .mwa-mod-h small{color:#64748b}
+  #${PANEL_ID} .mwa-mod.open .mwa-sign{background:#fff;border-color:#94a3b8;color:#334155}
   #${PANEL_ID} .mwa-mod-b{flex:1 1 auto;min-height:0;overflow:auto;padding:12px;overscroll-behavior:contain}
   #${PANEL_ID} .mwa-mod-b>.mwa-section:first-child,#${PANEL_ID} .mwa-mod-b>.mwa-progress{margin-top:0}
   #${PANEL_ID} .mwa-tr{display:flex;gap:8px}
