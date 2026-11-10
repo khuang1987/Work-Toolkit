@@ -38,12 +38,12 @@
 <div class="cover">
   <h1>Medtronic Work Assistant</h1>
   <p>Windchill 智能检索 · 签名文件批量下载 · Fabriq AI 优化 · 一站式工作助手（Chrome 插件）</p>
-  <span class="ver">使用说明 · 版本 3.6.3</span>
+  <span class="ver">使用说明 · 版本 3.7.0</span>
 </div>
 
 <h2>一、安装（本地安装，不需要 Google 账号）</h2>
 <ol>
-  <li>把收到的 <code>MedtronicWorkAssistant-v3.6.3.zip</code> 解压到一个<strong>固定文件夹</strong>（例如 <code>D:\Tools\</code>），安装后不要移动或删除这个文件夹。</li>
+  <li>把收到的 <code>MedtronicWorkAssistant-v3.7.0.zip</code> 解压到一个<strong>固定文件夹</strong>（例如 <code>D:\Tools\</code>），安装后不要移动或删除这个文件夹。</li>
   <li>在 Chrome 地址栏输入 <code>chrome://extensions</code> 回车，打开右上角的 <strong>开发者模式</strong>。</li>
   <li>点左上角 <strong>加载已解压的扩展程序</strong>，选择解压出来的 <code>MedtronicWorkAssistant</code> 文件夹。</li>
   <li>点浏览器右上角的拼图图标，把 <strong>Medtronic Work Assistant</strong> 固定到工具栏。</li>
@@ -103,6 +103,16 @@
 </ul>
 <div class="card tip"><strong>提示：</strong>下载时请保持 Windchill 页面打开（不要关闭或刷新）；只能下载你本人有权限的文件。</div>
 
+<h3>按清单批量下载（CFN / 文件号）</h3>
+<p>有一份产品清单或文件号清单时，点助手里的 <strong>清单</strong> 按钮，在新页面里按“选择文件识别 → 自动检索 → 下载”三步走：</p>
+<ol>
+  <li><strong>清单</strong>：选择 xlsx / csv / txt（也可拖入或直接粘贴）。产品清单默认识别 <code>CFN</code> 列，工作表和列都可以改；文件号清单直接粘贴 <code>WI-155, WI-128</code>，选「文件号」模式。</li>
+  <li><strong>文件类型</strong>：默认 <code>MG, PS, BOM</code>，可自定义；名称或编号以“类型-CFN”开头的文档会被找出来（如 <code>PS-6550006</code>、<code>BOM-6550006</code>）。勾选“含下级编号”还会取 <code>MG-6550006-02-…</code> 这类下级文件。</li>
+  <li><strong>范围</strong>：默认只处理前 10 个，方便先试；可改起始序号和个数。</li>
+</ol>
+<p>点 <strong>检索并下载</strong> 会逐个编号检索并下载签名文件，保存到 <code>Windchill\日期_清单\CFN\</code>；点 <strong>只检索，不下载</strong> 可先预览，每行仍可下拉换版本。页面会标出每个 CFN 缺哪类文件、哪些编号没有文档，并可导出结果 CSV。类型也可在后台「Windchill 规则库 → 清单批量下载」中设置。</p>
+<div class="shot"><img src="img/batch.png" width="640"><small>清单批量下载页（文件号模式示例）</small></div>
+
 <h2>五、Windchill 规则库（插件后台）</h2>
 <p>点工具栏 ⚙ 打开插件后台，进入「Windchill 规则库」。按分组折叠显示，改完点页面底部「保存规则」，已打开的 Windchill 页面立即生效：</p>
 <ul>
@@ -146,6 +156,7 @@
 <h2>十、升版记录</h2>
 <table>
   <tr><th style="width:80px">版本</th><th>主要变化</th></tr>
+  <tr><td>3.7.0</td><td>Windchill 新增「清单批量下载」：按 CFN（MG / PS / BOM 等可自定义类型）或文件号清单自动检索并下载签名文件；Fabriq 面板卡片标题配色优化。</td></tr>
   <tr><td>3.6.3</td><td>修复 Fabriq 中文界面下任务日期 / 负责人写入失败导致中断。</td></tr>
   <tr><td>3.6.0–3.6.2</td><td>圆角 iOS 风格工具栏；后台右上角切换 AI 模型；Windchill 规则库分组折叠、下载记录独立页面；AI 记录持久化并自动备份为文件；密码输入圆点显示。</td></tr>
   <tr><td>3.5</td><td>工具栏精简为 ⚙ 设置 / ■ 中止；设置直接打开插件后台。</td></tr>
@@ -156,6 +167,6 @@
   <tr><td>3.0</td><td>Fabriq AI 重构：可靠性层、撤销、AI 对话记录与操作记录后台。</td></tr>
 </table>
 
-<footer>Medtronic Work Assistant 3.6.3 · 本地安装版 · 完整更新日志见安装包内 CHANGELOG.md</footer>
+<footer>Medtronic Work Assistant 3.7.0 · 本地安装版 · 完整更新日志见安装包内 CHANGELOG.md</footer>
 </body>
 </html>

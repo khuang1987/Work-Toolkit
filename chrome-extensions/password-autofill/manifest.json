@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Medtronic Work Assistant",
-  "version": "3.6.3",
+  "version": "3.7.0",
   "description": "集成自动填充、学习助手、任务管理和EHR一键审批的综合工作助手插件",
   "icons": {
     "128": "icon.png"
@@ -96,7 +96,7 @@
     },
     {
       "matches": ["https://medtronic.fabriq.tech/*"],
-      "js": ["content_fabriq.js", "fabriq_ai_helpers.js", "fabriq_ai_guard.js", "fabriq_ai_style.js", "fabriq_page.js", "fabriq_ai_client.js", "fabriq_undo.js", "content_fabriq_ai.js"],
+      "js": ["content_fabriq.js", "fabriq_ai_helpers.js", "fabriq_ai_guard.js", "fabriq_ai_style.js", "fabriq_page.js", "fabriq_ai_client.js", "fabriq_undo.js", "content_fabriq_ai.js", "mwa_dock.js", "import_core.js", "import_flow.js", "content_fabriq_import.js"],
       "run_at": "document_idle"
     }
   ],
@@ -116,6 +116,10 @@
     {
       "resources": ["icons/workday.png"],
       "matches": ["https://www.myworkday.com/*"]
+    },
+    {
+      "resources": ["icons/fabriq.png"],
+      "matches": ["https://medtronic.fabriq.tech/*"]
     }
   ],
   "background": {

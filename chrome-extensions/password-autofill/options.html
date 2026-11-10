@@ -28,6 +28,9 @@
     tr.row:hover{background:#f8fafc}
     .ok{color:#15803d}.bad{color:#b91c1c}.muted{color:var(--muted)}
     .tag{display:inline-block;padding:0 8px;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:12px}
+    .tag.ok{background:#dcfce7;color:#166534}.tag.bad{background:#fee2e2;color:#991b1b}.tag.warn{background:#fef3c7;color:#92400e}
+    nav button:disabled{opacity:.5;cursor:not-allowed}
+    #tab-import h4{margin:16px 0 6px}
     .detail{background:#f8fafc}
     .detail td{padding:12px 16px}
     .msg{margin:8px 0;border:1px solid var(--line);border-radius:8px;background:#fff}
@@ -87,6 +90,8 @@
     <button data-tab="ops">操作记录</button>
     <button data-tab="windchill">Windchill 规则库</button>
     <button data-tab="dllog">下载记录</button>
+    <button data-tab="import">导入中心</button>
+    <button data-tab="sched" disabled title="预留，尚未开放">定时导入（预留）</button>
     <button data-tab="features" id="featuresNav" hidden>功能管理</button>
     <button data-tab="aiconfig" id="aiconfigNav" hidden>AI 接口</button>
   </nav>
@@ -125,6 +130,30 @@
         <button class="btn danger" id="opsClear">清空</button>
       </div>
       <div id="opsList"></div>
+    </section>
+    <section id="tab-import" hidden>
+      <p class="note">把导出脚本生成的 CSV 先在这里<b>校验并与线上数据对比</b>，确认后<b>导入</b>：先导最多 3 行金丝雀并读回核对，通过后再导其余，最后读回对账；覆盖前保存原值，可在“导入历史”里撤销。写入只允许下面“允许导入的团队”名单内的团队（默认只有测试团队）。模板规范见 Obsidian《Fabriq 导入 CSV 模板 v1》。需要先打开一个已登录的 Fabriq 页面。</p>
+      <div class="bar">
+        <label class="muted">团队 ID <input id="imTeam" type="search" size="8" value="28671"></label>
+        <button class="btn" id="imPick">选择导出文件夹</button>
+        <button class="btn" id="imResume" hidden>恢复文件夹授权</button>
+        <span id="imFolder" class="muted"></span>
+        <span class="grow"></span>
+        <button class="btn" id="imRefresh">刷新文件列表</button>
+        <button class="btn" id="imFilePick">或选择单个 CSV…</button>
+      </div>
+      <div class="bar">
+        <label class="muted" title="只有名单内的团队允许写入；生产团队需要你自己加进来">允许导入的团队（逗号分隔）<input id="imAllow" type="search" size="22" value="28671"></label>
+        <span class="muted">默认只有测试团队 28671；写入前后台会再次校验，名单外的团队一律拒绝</span>
+      </div>
+      <div id="imFiles"></div>
+      <div id="imProgress" class="note"></div>
+      <div id="imResult"></div>
+      <h4>导入历史</h4>
+      <div id="imHistory"></div>
+    </section>
+    <section id="tab-sched" hidden>
+      <p class="note">定时导入：预留，尚未开放。以后会遵守：默认仍需人工确认、同一文件哈希只导一次、失败只通知不重试、每次执行写入操作记录。</p>
     </section>
     <section id="tab-aiconfig" hidden>
       <p class="note">全插件共享的 AI 接口。接口类型、地址和 API Key 只在这里配置；工具栏弹窗里只切换模型。Key 加密保存在本机浏览器配置中，下面可以查看。</p>
@@ -200,6 +229,12 @@
             </div>
           </div>
           <div class="rule-card">
+            <h3>清单批量下载</h3>
+            <div class="field"><label>文件类型（名称 / 编号以「类型-CFN」开头）</label><textarea data-list="batch.types" rows="2" placeholder="MG, PS, BOM"></textarea></div>
+            <label class="inline"><input type="checkbox" id="batchIncludeSub"> 同时取下级编号（如 MG-6550006-02-…）</label>
+            <div class="field"><label>默认每次处理个数</label><input id="batchLimit" type="number" min="1" max="5000"></div>
+          </div>
+          <div class="rule-card">
             <h3>下载选项</h3>
             <div class="field"><label>下载子目录（位于浏览器下载目录内）</label><input id="dlFolder" type="text"></div>
             <div class="field"><label>并发数（1-4）</label><input id="dlConcurrency" type="number" min="1" max="4"></div>
@@ -253,6 +288,9 @@
   <script src="wc_ai.js"></script>
   <script src="fabriq_ai_guard.js"></script>
   <script src="fabriq_ai_client.js"></script>
+  <script src="import_core.js"></script>
+  <script src="import_flow.js"></script>
+  <script src="options_import.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

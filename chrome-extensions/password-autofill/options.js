@@ -21,7 +21,7 @@
     if ((name === 'features' || name === 'aiconfig') && !unlocked()) name = 'ai';
     if (!$(`tab-${name}`)) name = 'ai';
     document.querySelectorAll('nav button').forEach(item => item.classList.toggle('on', item.dataset.tab === name));
-    ['ai', 'ops', 'windchill', 'dllog', 'features', 'aiconfig'].forEach(tab => { $(`tab-${tab}`).hidden = tab !== name; });
+    ['ai', 'ops', 'windchill', 'dllog', 'import', 'sched', 'features', 'aiconfig'].forEach(tab => { $(`tab-${tab}`).hidden = tab !== name; });
     if (name === 'ops') loadOps();
     if (name === 'windchill') loadWindchill();
     if (name === 'dllog') loadDlLog();
@@ -438,6 +438,8 @@
     $('dlMaxFiles').value = rules.download.maxFiles;
     $('dlVerify').checked = rules.download.verify;
     $('dlAi').checked = rules.download.aiAssist;
+    $('batchIncludeSub').checked = rules.batch.includeSub;
+    $('batchLimit').value = rules.batch.limit;
     runRuleTest();
   }
 
@@ -451,6 +453,7 @@
     rules.categories.drawing = { formats: formats('drawing.formats'), excludeLeadingPrefix: $('drawingExcludeLeading').checked, requireNameKeyword: $('drawingRequireName').checked };
     rules.signed = { formats: formats('signed.formats'), namePatterns: list('signed.namePatterns'), fallback: $('signedFallback').value };
     rules.download = { folder: $('dlFolder').value, concurrency: $('dlConcurrency').value, maxFiles: $('dlMaxFiles').value, verify: $('dlVerify').checked, aiAssist: $('dlAi').checked };
+    rules.batch = { types: list('batch.types'), includeSub: $('batchIncludeSub').checked, limit: $('batchLimit').value };
     return WcRules.normalize(rules);
   }
 

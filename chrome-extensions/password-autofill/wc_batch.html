@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Windchill 清单批量下载</title>
+  <style>
+    :root{color-scheme:light;--blue:#087f9c;--line:#e2e8f0;--muted:#64748b}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{display:flex;flex-direction:column;font:13px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;color:#1f2937;background:#f1f5f9}
+    header{padding:10px 16px;background:linear-gradient(135deg,#073c68,#087f9c);color:#fff}
+    header h1{margin:0;font-size:15px}
+    header p{margin:2px 0 0;color:#d8edf8;font-size:12px}
+    .panel{margin:10px 16px 0;padding:10px 12px;background:#fff;border:1px solid var(--line);border-radius:12px}
+    .row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:4px 0}
+    .row label{display:inline-flex;gap:4px;align-items:center}
+    .step{display:inline-block;margin-right:6px;padding:0 7px;border-radius:9px;background:#e0f2fe;color:#075985;font-size:11px;font-weight:600}
+    button,select,input[type=text],input[type=number],textarea{border:1px solid #cbd5e1;border-radius:8px;padding:4px 10px;background:#fff;color:#1f2937;font:inherit}
+    textarea{width:100%;min-height:44px;resize:vertical}
+    input[type=number]{width:70px}
+    input.types{width:240px}
+    button{cursor:pointer}
+    button:hover:not(:disabled){border-color:var(--blue);color:var(--blue)}
+    button:disabled{opacity:.5;cursor:default}
+    button.go{background:var(--blue);border-color:var(--blue);color:#fff}
+    button.go:hover:not(:disabled){color:#fff;filter:brightness(1.08)}
+    .muted{color:var(--muted);font-size:12px}
+    main{flex:1;overflow:auto;margin:10px 16px;background:#fff;border:1px solid var(--line);border-radius:12px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:5px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+    th{position:sticky;top:0;background:#f8fafc;color:var(--muted);font-size:12px;z-index:1}
+    tr.group td{background:#f1f5f9;font-weight:600}
+    td select{max-width:300px;width:100%}
+    .tag{display:inline-block;padding:0 6px;border-radius:9px;background:#eff6ff;color:#1d4ed8;font-size:11px}
+    .ok{color:#15803d}.bad{color:#b91c1c;word-break:break-all}.warn{color:#b45309}
+    footer{padding:8px 16px;background:#fff;border-top:1px solid var(--line)}
+    progress{width:100%;height:8px}
+    #note{min-height:18px;margin-top:4px;color:#334155}
+    .empty{padding:40px;text-align:center;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>清单批量下载</h1>
+    <p>选择文件识别清单 → 自动检索 → 逐个下载（默认下载签名文件）。清单可以是产品 CFN，也可以是文件号（如 WI-155, WI-128）。</p>
+  </header>
+
+  <div class="panel">
+    <div class="row">
+      <span class="step">① 清单</span>
+      <label><input type="radio" name="mode" value="cfn" checked> 产品 CFN（按文件类型检索）</label>
+      <label><input type="radio" name="mode" value="number"> 文件号（直接按编号检索）</label>
+      <button id="pick">选择文件（xlsx / csv / txt）</button>
+      <input id="file" type="file" accept=".xlsx,.xlsm,.csv,.txt" hidden>
+      <span id="fileName" class="muted"></span>
+    </div>
+    <div class="row" id="sheetRow" hidden>
+      <label>工作表 <select id="sheet"></select></label>
+      <label>编号所在列 <select id="column"></select></label>
+      <label><input id="header" type="checkbox" checked> 首行是表头</label>
+    </div>
+    <div class="row"><textarea id="paste" placeholder="也可以直接粘贴：每行一个，或用逗号分隔，例如 WI-155, WI-128"></textarea></div>
+    <div class="row" id="typeRow">
+      <span class="step">② 文件类型</span>
+      <input id="types" class="types" type="text" placeholder="MG, PS, BOM" title="文档名称或编号以「类型-CFN」开头的文件，例如 PS-6550006、BOM-6550006、MG-6550006-02-…">
+      <label><input id="includeSub" type="checkbox"> 含下级编号（如 MG-6550006-02-…）</label>
+      <span class="muted">类型会保存到规则库，可随时改</span>
+    </div>
+    <div class="row">
+      <span class="step">③ 范围</span>
+      <label>从第 <input id="start" type="number" min="1" value="1"> 个</label>
+      <label>处理 <input id="limit" type="number" min="1" max="5000" value="10"> 个</label>
+      <span id="found" class="muted"></span>
+    </div>
+    <div class="row">
+      <button id="run" class="go" disabled>检索并下载</button>
+      <button id="dry" disabled>只检索，不下载</button>
+      <button id="cancel" hidden>取消</button>
+      <button id="exportBtn" disabled>导出结果 CSV</button>
+      <button id="openFolder">打开下载目录</button>
+      <button id="openLog">下载记录</button>
+    </div>
+  </div>
+
+  <main><div id="list"><div class="empty">选择清单文件后，点「检索并下载」</div></div></main>
+  <footer>
+    <progress id="progress" value="0" max="1" hidden></progress>
+    <div id="note"></div>
+  </footer>
+  <script src="wc_rules.js"></script>
+  <script src="wc_xlsx.js"></script>
+  <script src="wc_batch.js"></script>
+</body>
+</html>

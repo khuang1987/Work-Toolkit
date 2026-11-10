@@ -1605,6 +1605,8 @@
     .status.error { color: #b42318; }
     .status.done { margin: 0 10px 8px; padding: 3px 8px; color: #137333; background: #e6f4ea; border-left: 3px solid #1e9e4a; border-radius: 3px; font-weight: 600; }
     .dl-mini { flex: none; align-self: center; margin-left: auto; padding: 1px 8px; border-color: #087f9c; color: #075e9c; font-size: 10px; line-height: 16px; }
+    .dl-mini.batch { margin-left: auto; margin-right: 4px; }
+    .dl-mini.batch + .dl-mini { margin-left: 0; }
   `);
   shadow.appendChild(style);
 
@@ -1692,8 +1694,9 @@
   const collapsedButton = make('button', { class: 'collapsed-button', type: 'button', title: '展开 Windchill 助手', 'aria-label': '展开 Windchill 助手' });
   collapsedButton.append(make('img', { src: chrome.runtime.getURL('icons/windchill.png'), alt: 'Windchill' }));
   const dlOpen = make('button', { class: 'dl-mini', type: 'button', title: '在新标签页中选择并下载签名文件' }, '下载');
-  const dlBar = dlOpen;
-  summary.append(dlOpen);
+  const batchOpen = make('button', { class: 'dl-mini batch', type: 'button', title: '导入清单（CFN / 文件号），自动检索并批量下载' }, '清单');
+  const dlBar = { set hidden(value) { dlOpen.hidden = value; batchOpen.hidden = value; }, get hidden() { return dlOpen.hidden; } };
+  summary.append(batchOpen, dlOpen);
   panel.append(head, toolbar, filters, formatRow, approvalView, summary, status, collapsedButton);
   shadow.append(panel);
 
@@ -2004,21 +2007,68 @@
       : [{ role: 'primary', id: '', fileName: '', mime: '', urls: [], size: 0, format: record.format }];
   }
 
+  function jobItemOf(record, key) {
+    const plan = Rules.planSigned(rules, record);
+    const files = fileListOf(record);
+    dl.plans.set(key, { record, files });
+    return {
+      key, number: record.number, title: record.title, version: record.version, format: record.format,
+      category: record.category, status: plan.status, reason: plan.reason, confidence: plan.confidence,
+      pickIndex: plan.pick ? Math.max(0, files.indexOf(plan.pick)) : -1,
+      files: files.map((file) => ({ role: file.role, fileName: file.fileName, format: file.format, size: file.size, signed: Rules.fileIsSigned(rules, file) }))
+    };
+  }
+
   function downloadJob() {
-    dl.plans.clear();
-    const items = state.records.slice(0, rules.download.maxFiles).map((record, index) => {
-      const key = `${index}:${record.oid || record.number}`;
-      const plan = Rules.planSigned(rules, record);
-      const files = fileListOf(record);
-      dl.plans.set(key, { record, files });
-      return {
-        key, number: record.number, title: record.title, version: record.version, format: record.format,
-        category: record.category, status: plan.status, reason: plan.reason, confidence: plan.confidence,
-        pickIndex: plan.pick ? Math.max(0, files.indexOf(plan.pick)) : -1,
-        files: files.map((file) => ({ role: file.role, fileName: file.fileName, format: file.format, size: file.size, signed: Rules.fileIsSigned(rules, file) }))
-      };
-    });
+    [...dl.plans.keys()].filter((key) => !key.startsWith('b:')).forEach((key) => dl.plans.delete(key));
+    const items = state.records.slice(0, rules.download.maxFiles).map((record, index) => jobItemOf(record, `${index}:${record.oid || record.number}`));
     return { keyword: clean(query.value), origin: location.origin, rules, items };
+  }
+
+  // 清单批量下载：按 CFN（或文件号）检索，返回与下载页相同结构的条目；下载仍走 wcDownloadItem。
+  async function fetchBatchDocuments(filter, signal) {
+    const records = [];
+    let payload = await fetchWindchillOData('DocMgmt/Documents', {
+      '$filter': filter, '$top': '100', '$expand': 'PrimaryContent,Attachments'
+    }, { signal });
+    for (let page = 0; ; page += 1) {
+      odataItems(payload).forEach((item) => records.push(normalizeDocument(item, 'document')));
+      if (!payload || !payload['@odata.nextLink'] || page >= 5 || records.length >= 300) break;
+      payload = await fetchWindchillOData(payload['@odata.nextLink'], {}, { signal });
+    }
+    return records;
+  }
+
+  async function batchSearch(request) {
+    const value = Rules.cleanCfn(request.value);
+    if (!value) throw new Error('编号为空');
+    const types = (request.types || []).map(String);
+    const byNumber = request.mode === 'number';
+    if (!byNumber && !types.length) throw new Error('没有选择文件类型');
+    const filter = byNumber
+      ? `Number eq '${odataString(value)}'`
+      : Rules.batchFilter(types, value, odataString);
+    let records;
+    try {
+      records = await fetchBatchDocuments(filter);
+    } catch (error) {
+      records = await fetchBatchDocuments(filter);
+    }
+    const matched = [];
+    records.forEach((record) => {
+      if (byNumber) {
+        if (clean(record.number).toUpperCase() === value.toUpperCase()) matched.push({ record, type: '' });
+        return;
+      }
+      const type = Rules.matchBatch(record, types, value, request.includeSub !== false);
+      if (type) matched.push({ record, type });
+    });
+    matched.sort((a, b) => types.indexOf(a.type) - types.indexOf(b.type) || clean(a.record.number).localeCompare(clean(b.record.number)));
+    // 同一 CFN 的条目先清掉旧计划，避免重新检索时堆积
+    [...dl.plans.keys()].filter((key) => key.startsWith(`b:${value}:`)).forEach((key) => dl.plans.delete(key));
+    return matched.slice(0, 200).map(({ record, type }, index) => ({
+      ...jobItemOf(record, `b:${value}:${index}:${record.oid || record.number}`), type
+    }));
   }
 
   function updateDownloadBar() {
@@ -2053,6 +2103,17 @@
         sendResponse({ ok: true });
         return;
       }
+      if (request.action === 'wcPing') {
+        sendResponse({ ok: true, origin: location.origin });
+        return;
+      }
+      if (request.action === 'wcBatchSearch') {
+        batchSearch(request).then(
+          (items) => sendResponse({ ok: true, items }),
+          (error) => sendResponse({ ok: false, error: String(error && error.message || error) })
+        );
+        return true;
+      }
       if (request.action !== 'wcDownloadItem') return;
       const entry = dl.plans.get(request.key);
       const content = entry && entry.files[request.fileIndex];
@@ -2070,6 +2131,19 @@
   } catch (error) {}
 
   dlOpen.addEventListener('click', openDownloader);
+  batchOpen.addEventListener('click', () => {
+    try {
+      chrome.runtime.sendMessage({ action: 'wcOpenBatch' }, (response) => {
+        if (chrome.runtime.lastError || !response?.ok) {
+          status.className = 'status error';
+          status.textContent = `无法打开清单下载页：${chrome.runtime.lastError?.message || response?.error || '未知错误'}`;
+        }
+      });
+    } catch (error) {
+      status.className = 'status error';
+      status.textContent = '扩展已重载，请刷新页面';
+    }
+  });
 
   // 最近一次检索的样本（编号 / 名称 / 文件名），供插件后台让 AI 建议规则调整；只保存文本，不含地址。
   function saveRuleSamples() {

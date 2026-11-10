@@ -20,7 +20,9 @@
     // fallback：没有文件名命中签名关键词时的兜底——primary=主文件符合格式即可；any=任意符合格式的内容；none=只认文件名命中
     // (R) 是 Windchill 发布流程自动生成的已批准 PDF 命名（编号_版本(R).pdf）。
     signed: { formats: ['pdf'], namePatterns: ['(R)', '签名', '签字', '会签', 'signed'], fallback: 'primary' },
-    download: { folder: 'Windchill', concurrency: 2, maxFiles: 100, verify: true, aiAssist: false }
+    download: { folder: 'Windchill', concurrency: 2, maxFiles: 100, verify: true, aiAssist: false },
+    // 清单批量下载：types 是文档名称 / 编号的类型前缀（如 MG-、PS-、BOM-），includeSub 表示同时取 CFN 的下级编号（如 MG-6550006-02-…）。
+    batch: { types: ['MG', 'PS', 'BOM'], includeSub: true, limit: 10 }
   });
 
   const uniq = list => [...new Set(list)];
@@ -74,6 +76,12 @@
       maxFiles: clampInt(download.maxFiles, 1, 200, base.download.maxFiles),
       verify: download.verify === undefined ? true : !!download.verify,
       aiAssist: !!download.aiAssist
+    };
+    const batch = input.batch || {};
+    out.batch = {
+      types: Array.isArray(batch.types) ? strings(batch.types, { max: 16, upper: true, pattern: /^[A-Za-z0-9_]{1,16}$/ }) : base.batch.types,
+      includeSub: batch.includeSub === undefined ? true : !!batch.includeSub,
+      limit: clampInt(batch.limit, 1, 5000, base.batch.limit)
     };
     return out;
   }
@@ -226,7 +234,7 @@
       : [number, title && title !== number ? title : '', record.version ? `V${safeName(record.version)}` : '']
         .filter(Boolean).join('_').slice(0, 120);
     const extension = ext || extOf(content.fileName) || FORMAT_EXT[content.format] || 'bin';
-    return `${rules.download.folder}/${safeName(batch, 'batch')}/${base}.${extension}`;
+    return `${rules.download.folder}/${String(batch || '').split('/').map(part => safeName(part, 'batch')).filter(Boolean).join('/') || 'batch'}/${base}.${extension}`;
   }
   // 该文件是否符合签名文件规则（格式允许且文件名含签名关键词）。
   const fileIsSigned = (rules, content) => rules.signed.formats.includes(content.format)
@@ -248,10 +256,44 @@
     return uniq(urls);
   }
 
+  // ───── 清单批量下载 ─────
+  const cleanCfn = value => String(value ?? '').trim().replace(/\.0+$/, '');
+  // 服务端过滤：名称或编号以「类型-CFN」开头；客户端再用 matchBatch 精确判断边界（避免 PS-65500061 误中 PS-6550006）。
+  function batchFilter(types, cfn, escape) {
+    const parts = [];
+    types.forEach(type => {
+      const prefix = escape(`${type}-${cleanCfn(cfn)}`);
+      parts.push(`startswith(Number,'${prefix}')`, `startswith(Name,'${prefix}')`);
+    });
+    return parts.join(' or ');
+  }
+  // 返回命中的类型（大写）；不命中返回空串。
+  function matchBatch(record, types, cfn, includeSub) {
+    const target = cleanCfn(cfn).toUpperCase();
+    if (!target) return '';
+    const fields = [record.number, record.title].map(text => String(text ?? '').trim().toUpperCase());
+    for (const type of types) {
+      const prefix = `${type.toUpperCase()}-${target}`;
+      for (const field of fields) {
+        if (!field.startsWith(prefix)) continue;
+        const next = field.charAt(prefix.length);
+        if (!next || /[_ (]/.test(next) || (includeSub && next === '-')) return type.toUpperCase();
+      }
+    }
+    return '';
+  }
+  // 文件号清单：逗号 / 空格 / 换行 / 分号分隔。
+  function parseNumberList(text) {
+    const seen = new Set();
+    return String(text ?? '').split(/[\s,，、;；]+/).map(item => item.trim())
+      .filter(item => /^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$/.test(item))
+      .filter(item => { const key = item.toUpperCase(); if (seen.has(key)) return false; seen.add(key); return true; });
+  }
+
   const api = {
     STORAGE_KEY, FORMATS, FORMAT_EXT, defaults, normalize, allPrefixes, prefixAlternation, prefixOf, categoryOfPrefix, classify,
     hasLeadingPrefix, drawingFormatOk, drawingAccepts, odataCategoryFilter, extractContents, planSigned, safeName, extOf,
-    buildFilename, contentUrls, fileIsSigned
+    buildFilename, contentUrls, fileIsSigned, batchFilter, matchBatch, parseNumberList, cleanCfn
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WcRules = api;

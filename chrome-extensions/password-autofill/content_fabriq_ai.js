@@ -89,7 +89,7 @@
 
   // 只有单一功能时给出针对该内容的调整方向；多项（完整优化）用通用方向。
   function directionsFor(scope) {
-    if (scope.progress) return ['评论更简短', '评论更正式', '少建任务', '任务拆得更细', '只写评论', '补充风险与阻塞'];
+    if (scope.progress) return ['更简洁', '更详细', '评论更正式', '少建任务', '任务拆得更细', '只写评论', '补充风险与阻塞'];
     if (scope.translate) return ['更口语', '更正式', '保留专业术语不翻译', '更简短'];
     const keys = ['title', 'description', 'tasks', 'schedule'].filter(key => scope[key]);
     return keys.length === 1 ? (DIRECTION_SETS[keys[0]] || DIRECTIONS) : DIRECTIONS;
@@ -193,7 +193,7 @@
     const scheduleBtn = act('分配时间', '给无日期任务排期', scopeOf({ schedule: true }));
     const askBtn = el('button', { type: 'button', className: 'mwa-act wide', title: `让 AI 先提问，补全信息后再生成（最多 ${MAX_QA_ROUNDS} 轮）` },
       '问答补充', el('small', { textContent: `描述不清楚时先提问（最多 ${MAX_QA_ROUNDS} 轮）` }));
-    const progressInput = el('textarea', { rows: 4, placeholder: '开会时直接输入进展，如：换刀序号问题已定位，小王周五前验证夹具，下周三让 Daping 补 3 个批次数据；我今天更新了客户邮件' });
+    const progressInput = el('textarea', { rows: 3, placeholder: '开会时直接输入进展，如：换刀序号问题已定位，小王周五前验证夹具，下周三让 Daping 补 3 个批次数据；我今天更新了客户邮件' });
     progressInput.setAttribute('aria-label', '进展更新');
     const progressBtn = el('button', { className: 'mwa-btn primary', type: 'button', textContent: '分析进展并预览' });
     const progressBox = el('div', { className: 'mwa-section mwa-progress' },
@@ -250,11 +250,11 @@
       el('header', {}, el('h2', { textContent: '✨ AI 助手' }), el('span', { className: 'mwa-hbtns' }, menuBtn, closeBtn), menu),
       panelBusy,
       el('div', { className: 'mwa-body' },
-        makeModule('progress', '进展更新', '输入进展 → 更新任务 / 评论', progressBox),
-        makeModule('optimize', '内容优化', '标题 · 描述 · 任务 · 时间',
-          el('div', { className: 'mwa-actions' }, ...singleBtns),
-          el('div', { className: 'mwa-section' }, el('h3', { textContent: '调整方向（可多选）' }), picker.node),
-          el('div', { className: 'mwa-section' }, fullBtn)),
+        makeModule('progress', '进展与优化', '上：进展更新　下：标题 · 描述 · 任务 · 时间',
+          progressBox,
+          el('div', { className: 'mwa-section mwa-direction' }, el('h3', { textContent: '调整方向（进展更新、内容优化通用，可多选）' }), picker.node),
+          el('div', { className: 'mwa-section mwa-optimize' }, el('h3', { textContent: '内容优化' }),
+            el('div', { className: 'mwa-actions' }, ...singleBtns), fullBtn)),
         makeModule('qa', '智能问答', '信息不清楚时先提问补充',
           el('div', { className: 'mwa-msg', textContent: `AI 先提问，你回答后再生成优化结果（最多 ${MAX_QA_ROUNDS} 轮）。` }),
           el('div', { className: 'mwa-section mwa-actions' }, askBtn), qaBox),
@@ -793,7 +793,7 @@
         updateActions();
       }
     };
-    progressBtn.onclick = () => { state.result = null; generateProgress(''); };
+    progressBtn.onclick = () => { state.result = null; generateProgress(picker.value()); };
     progressInput.addEventListener('keydown', event => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); progressBtn.click(); }
     });

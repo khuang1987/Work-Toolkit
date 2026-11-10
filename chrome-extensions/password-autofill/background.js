@@ -1,5 +1,5 @@
 // Background script for handling new tab monitoring and closing
-importScripts('pending_sync.js', 'ai_store.js', 'mwa_activity.js', 'mwa_export.js');
+importScripts('pending_sync.js', 'ai_store.js', 'mwa_activity.js', 'mwa_export.js', 'import_core.js');
 
 let monitoredUrls = new Set();
 let mainTabId = null;
@@ -245,11 +245,147 @@ function wcDownloadFile(request, sender) {
   });
 }
 
+// ───── 导入中心：只读读取桥 ─────
+const FABRIQ_READ_ALLOWED = [
+  /^\/backend\/kpi\/v2\/indicator\/\d+$/,
+  /^\/legacy\/api\/api\/v1\/indicator\/\d+\/datapoints\/$/,
+  /^\/legacy\/api\/api\/v1\/team\/\d+\/$/,
+];
+// ───── 导入中心：受限写入通道 ─────
+// 只允许两种操作：导入 CSV（POST import-datapoints）和删除一条数据点（撤销用）。
+// 门禁（全部在后台强制，页面无法绕过）：仅插件后台页可调用；团队必须在「允许导入的团队」名单内（默认只有测试团队 28671）；
+// 导入前在后台重新读取 KPI 并按模板 v1 校验，有任何错误即拒绝；删除只允许名单内团队的 KPI。
+async function fabriqWriteTab(func, args) {
+  const tabs = await chrome.tabs.query({ url: 'https://medtronic.fabriq.tech/*' });
+  if (!tabs.length) throw new Error('请先在浏览器中打开一个已登录的 Fabriq 页面');
+  const [result] = await chrome.scripting.executeScript({ target: { tabId: tabs[0].id }, args, func });
+  return result && result.result;
+}
+
+async function fabriqWrite(op) {
+  const { mwaImportWriteTeams = [28671] } = await chrome.storage.local.get('mwaImportWriteTeams');
+  const teamId = Number(op.teamId);
+  if (!Number.isInteger(teamId) || !mwaImportWriteTeams.map(Number).includes(teamId)) {
+    throw new Error(`团队 ${op.teamId} 不在「允许导入的团队」名单内（当前：${mwaImportWriteTeams.join('、') || '空'}）`);
+  }
+  const kpiInfo = async id => {
+    const k = await fabriqRead(`/backend/kpi/v2/indicator/${id}`);
+    return { id, name: k.name, frequency: k.frequency, indicator_type: k.indicator_type, is_dynamic: !!k.is_dynamic,
+      unit_type: k.unit_type, teams: (k.teams && k.teams.ids) || [], choices: ((k.choices && k.choices.options) || []).map(o => o.value) };
+  };
+
+  if (op.type === 'import') {
+    if (typeof op.csv !== 'string' || !op.csv.trim()) throw new Error('导入内容为空');
+    const parsed = MwaImportCore.parseCsv(op.csv);
+    const col = parsed.headers.indexOf('indicator_id');
+    const ids = col < 0 ? [] : [...new Set(parsed.rows.map(r => (r.cells[col] || '').trim()).filter(v => /^\d+$/.test(v)).map(Number))];
+    if (!ids.length || ids.length > 40) throw new Error('KPI 数量不合法');
+    const kpis = {};
+    for (const id of ids) kpis[id] = await kpiInfo(id);
+    const check = MwaImportCore.validate(parsed, kpis, { teamId, today: op.today });
+    const errors = check.issues.filter(i => i.level === 'error');
+    if (errors.length) throw new Error(`后台校验未通过（${errors.length} 个错误），已拒绝写入：${errors[0].message}`);
+    const out = await fabriqWriteTab(async csv => {
+      try {
+        const csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+        const form = new FormData();
+        form.append('import_file', new Blob([csv], { type: 'text/csv' }), 'import.csv');
+        form.append('format', 'csv');
+        const response = await fetch('/backend/kpi/v2/import-datapoints', { method: 'POST', credentials: 'include', body: form,
+          headers: csrf ? { 'X-CSRFToken': csrf } : {}, signal: AbortSignal.timeout(120000) });
+        const text = await response.text();
+        let body = null;
+        try { body = JSON.parse(text); } catch { body = text.slice(0, 300); }
+        return { status: response.status, body };
+      } catch (error) {
+        return { status: 0, body: String(error) };
+      }
+    }, [op.csv]);
+    MwaActivity.log({ app: 'Fabriq', title: 'KPI 数据导入', ok: !!out && out.status === 200 && !(out.body && out.body.errors_count),
+      detail: `团队 ${teamId}；${parsed.rows.length} 行 / ${ids.length} 个 KPI；${op.note || ''}；结果 ${out ? out.status : '无响应'} ${out && out.body && out.body.success_count !== undefined ? `成功 ${out.body.success_count}，错误 ${out.body.errors_count}` : ''}` });
+    return out;
+  }
+
+  if (op.type === 'delete') {
+    const indicatorId = Number(op.indicatorId);
+    const datapointId = String(op.datapointId || '');
+    if (!Number.isInteger(indicatorId) || !/^[\w.:-]{1,80}$/.test(datapointId)) throw new Error('删除参数不合法');
+    const kpi = await kpiInfo(indicatorId);
+    if (kpi.is_dynamic || !kpi.teams.includes(teamId)) throw new Error('该 KPI 不属于允许的团队，或是 Dynamic KPI');
+    const out = await fabriqWriteTab(async (kid, dpId) => {
+      try {
+        const csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+        const response = await fetch(`/backend/kpi/v1/indicator/${kid}/datapoint/${encodeURIComponent(dpId)}`, { method: 'DELETE',
+          credentials: 'include', headers: csrf ? { 'X-CSRFToken': csrf } : {}, signal: AbortSignal.timeout(60000) });
+        return { status: response.status };
+      } catch (error) {
+        return { status: 0, body: String(error) };
+      }
+    }, [indicatorId, datapointId]);
+    MwaActivity.log({ app: 'Fabriq', title: 'KPI 数据撤销（删除新增数据点）', ok: !!out && out.status >= 200 && out.status < 300,
+      detail: `团队 ${teamId}；KPI ${indicatorId}；数据点 ${datapointId}；${op.note || ''}；结果 ${out ? out.status : '无响应'}` });
+    return out;
+  }
+  throw new Error('不支持的写入类型');
+}
+
+async function fabriqRead(endpoint) {
+  if (typeof endpoint !== 'string' || !FABRIQ_READ_ALLOWED.some(re => re.test(endpoint))) throw new Error('不允许的读取路径');
+  const tabs = await chrome.tabs.query({ url: 'https://medtronic.fabriq.tech/*' });
+  if (!tabs.length) throw new Error('请先在浏览器中打开一个已登录的 Fabriq 页面');
+  const [result] = await chrome.scripting.executeScript({
+    target: { tabId: tabs[0].id },
+    args: [endpoint],
+    func: async url => {
+      try {
+        const response = await fetch(url, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(45000) });
+        const text = await response.text();
+        let body = null;
+        try { body = JSON.parse(text); } catch { body = text.slice(0, 200); }
+        return { status: response.status, body };
+      } catch (error) {
+        return { status: 0, body: String(error) };
+      }
+    }
+  });
+  const out = result && result.result;
+  if (!out || out.status !== 200) throw new Error(`Fabriq 返回 ${out ? out.status : '无响应'}：${out && typeof out.body === 'string' ? out.body : ''}`);
+  return out.body;
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background script received action:', request.action);
 
   if (request.action === 'fabriqAiGenerate') {
     fabriqAiGenerate(request.messages, request.selection, request.meta).then(
+      data => sendResponse({ ok: true, data }),
+      err => sendResponse({ ok: false, error: String(err && err.message || err) })
+    );
+    return true;
+  }
+
+  // 导入中心（只读）：通过已打开的 Fabriq 页面（带登录态）发起 GET，仅限白名单路径，仅限插件后台页调用。
+  const fromOptions = sender.id === chrome.runtime.id && (sender.url || '').startsWith(chrome.runtime.getURL('options.html'));
+  const fromFabriqTab = sender.id === chrome.runtime.id && (sender.tab?.url || '').startsWith('https://medtronic.fabriq.tech/');
+  if (request.action === 'fabriqRead') {
+    if (!fromOptions && !fromFabriqTab) {
+      sendResponse({ ok: false, error: '仅限插件后台使用' });
+      return;
+    }
+    fabriqRead(request.endpoint).then(
+      data => sendResponse({ ok: true, data }),
+      err => sendResponse({ ok: false, error: String(err && err.message || err) })
+    );
+    return true;
+  }
+
+  // 导入中心（写入）：同样仅限插件后台页；门禁在 fabriqWrite 内强制。
+  if (request.action === 'fabriqWrite') {
+    if (!fromOptions && !fromFabriqTab) {
+      sendResponse({ ok: false, error: '仅限插件后台使用' });
+      return;
+    }
+    fabriqWrite(request.op).then(
       data => sendResponse({ ok: true, data }),
       err => sendResponse({ ok: false, error: String(err && err.message || err) })
     );
@@ -333,6 +469,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
       })
       .then(() => sendResponse({ ok: true }), error => sendResponse({ ok: false, error: String(error?.message || error) }));
+    return true;
+  }
+
+  if (request.action === 'wcOpenBatch') {
+    const tabId = sender.tab?.id;
+    if (sender.id !== chrome.runtime.id || tabId === undefined) {
+      sendResponse({ ok: false, error: '只允许 Windchill 页面发起' });
+      return;
+    }
+    (async () => {
+      const url = chrome.runtime.getURL(`wc_batch.html?tab=${tabId}`);
+      const [existing] = await chrome.tabs.query({ url: chrome.runtime.getURL('wc_batch.html*') });
+      if (existing) {
+        await chrome.tabs.update(existing.id, { url, active: true });
+        await chrome.windows.update(existing.windowId, { focused: true });
+      } else {
+        await chrome.tabs.create({ url, active: true });
+      }
+    })().then(() => sendResponse({ ok: true }), error => sendResponse({ ok: false, error: String(error?.message || error) }));
     return true;
   }
 

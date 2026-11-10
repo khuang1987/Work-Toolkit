@@ -54,6 +54,9 @@
   #${PANEL_ID} .mwa-menu [hidden]{display:flex!important;opacity:.4;pointer-events:none}
 
   #${PANEL_ID} .mwa-section{margin-top:14px}
+  #${PANEL_ID} .mwa-optimize,#${PANEL_ID} .mwa-direction{margin-top:22px;padding-top:18px;border-top:1px solid #d9dde3}
+  #${PANEL_ID} .mwa-mod-b>.mwa-section h3{margin:0 0 10px}
+  #${PANEL_ID} .mwa-cap{margin:10px 0 4px;font-size:12px;color:#64748b}
   #${PANEL_ID} .mwa-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   #${PANEL_ID} .mwa-mod{flex:none;display:flex;flex-direction:column;border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;background:#fff}
   #${PANEL_ID} .mwa-mod.open{flex:1 1 auto;min-height:0;border-color:#2563eb;box-shadow:0 2px 10px #2563eb26}
@@ -81,6 +84,8 @@
   #${PANEL_ID} .mwa-big:hover:not(:disabled){filter:brightness(1.07)}
   #${PANEL_ID} .mwa-big:disabled{opacity:.55;cursor:default;box-shadow:none}
   #${PANEL_ID} .mwa-big small{display:block;font-size:12px;font-weight:400;opacity:.85}
+  #${PANEL_ID} .mwa-optimize .mwa-actions{margin-bottom:18px}
+  #${PANEL_ID} .mwa-optimize .mwa-big{margin-top:6px}
   #${PANEL_ID} .mwa-qa{margin-top:14px;padding:10px;border:1px solid #c7d2fe;border-radius:8px;background:#f8faff}
   #${PANEL_ID} .mwa-question{margin-top:10px}
   #${PANEL_ID} .mwa-question textarea{min-height:56px;margin-top:4px}
